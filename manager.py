@@ -245,7 +245,8 @@ if jobinfofilepath==None:
     try:
         nodelist,cpunodesonlylist,gpunodesonlylist=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
-        queue = wq.WorkQueue(portnumber,debug_log = "output.log",stats_log = "stats.log")
+        queue = wq.WorkQueue(portnumber,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
+        queue.enable_monitoring('resourcesummary',watchdog=False)
         print("listening on port {}".format(queue.port),flush=True)
         CallWorkers(nodelist,envpath,masterhost,portnumber)
         # Submit several tasks for execution:
