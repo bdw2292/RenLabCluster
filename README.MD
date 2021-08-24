@@ -1,15 +1,21 @@
 ## Help
 
 ## Usage
+* Go to NOVA
+* run the follwing command to listen and wait for input job files
+```
+nohup python manager.py &
+```
+* Then after preparation of input job script is complete (see readme_help), run the following command
+```
+python manager.py --jobinfofilepath=jobinfo.txt
+```
+* The port number is set by the controlhost listening script (manager.py)
+* work_queue_status for information, output.log, stats.log for more information
+* See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
 * bashrcpath is optional argument, if not given there is a default bashrc file 
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
-* First the dameon needs to be started without any arguments (to listen for incoming jobs)
-* Next, jobinfofilepath is required argument for passing jobs to daemon
-```
-python path_to_manager.py --jobinfofilepath=jobinfofilepath
-python path_to_manager.py --bashrcpath=bashrcpath --jobinfofilepath=jobinfofilepath
 
-```
 
 ## Job Info File Path
 * jobinfofilepath is a text file with possible formats below
@@ -49,8 +55,6 @@ python path_to_manager.py --bashrcpath=bashrcpath --jobinfofilepath=jobinfofilep
 ## Hostname Node Topology
 * Saved in nodes.txt
 * include a \# in the line to ignore hostnames
-* if CPUONLY in line (after hostname) then used only for cpujobs
-* if GPUONLY in line (after hostname) then used only for gpujobs
 
 
 ## How it works
