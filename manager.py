@@ -140,7 +140,9 @@ def SubmitToQueue(jobinfo,queue):
                 task.specify_memory(ram)              
             if scratch!=None:
                 scratch=ConvertMemoryToMBValue(scratch)         
-                task.specify_disk(scratch)                 
+                task.specify_disk(scratch)      
+            if '_gpu' in job:
+                task.specify_gpus(1)           
             queue.submit(task)
     return queue
 
