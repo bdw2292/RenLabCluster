@@ -142,7 +142,9 @@ def SubmitToQueue(jobinfo,queue):
                 scratch=ConvertMemoryToMBValue(scratch)         
                 task.specify_disk(scratch)      
             if '_gpu' in job:
-                task.specify_gpus(1)           
+                task.specify_gpus(1)          
+            else:
+                task.specify_max_retries(2) # let QM do retry for now (or poltype)
             queue.submit(task)
     return queue
 
