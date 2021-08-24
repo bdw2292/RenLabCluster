@@ -1,0 +1,82 @@
+node35
+node36
+#node37
+#node38
+node40  
+node42 
+node43 
+node44 
+node45
+node46
+node47 
+node48
+node49
+node50
+node51 
+node52
+node53 
+node54
+node55 CPUONLY 
+node56
+node57
+node58 
+node59 CPUONLY
+node60 
+node61 CPUONLY 
+node62 
+node63 CPUONLY
+node64 CPUONLY
+node70 
+node71 
+node72
+node73
+node74 
+node76
+node77 	
+node78 
+node79 
+node80 
+node81
+node82
+node83 
+node84
+node85 CPUONLY
+node86
+node87
+node88
+node89
+node90
+node91
+node92
+node93
+node94
+node95
+node96
+node97
+node98
+node99
+node100
+node101
+node142
+#node144
+node193
+node194
+node195
+node201
+node204
+node210
+node211
+node212
+node215
+node206 CPUONLY
+bme-black CPUONLY
+bme-dna CPUONLY
+bme-earth CPUONLY
+bme-jupiter CPUONLY
+bme-mercury CPUONLY
+bme-mars CPUONLY
+bme-neptune CPUONLY
+bme-pluto CPUONLY
+bme-rna CPUONLY
+bme-sugar CPUONLY
+bme-saturn CPUONLY
