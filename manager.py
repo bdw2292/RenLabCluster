@@ -198,6 +198,7 @@ def CheckForInputJobs(jobinfo):
             foundinputjobs=True
             jobinfo=ReadJobInfoFromFile(jobinfo,f)
             array.append(f)
+            print('found inputfile ',f,flush=True)
     for f in array:
         os.remove(f)
     return jobinfo,foundinputjobs
@@ -239,7 +240,8 @@ def ParseJobInfo(line):
     return job,logname,scratch,scratchspace,jobpath,ram,numproc
 
 
- 
+thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
+
 if jobinfofilepath==None:
     if os.path.isfile(pidfile):
         raise ValueError('Daemon instance is already running')
@@ -265,7 +267,7 @@ else:
     newfirst=first+'_submit'
     split[0]=newfirst
     newname='.'.join(split)
-    newpath=os.path.join(os.getcwd(),newname)
+    newpath=os.path.join(thedir,newname)
     shutil.copy(jobinfofilepath,newpath)
     sys.exit()
 
