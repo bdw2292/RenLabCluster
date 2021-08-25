@@ -53,12 +53,20 @@ def ReadNodeList(nodelistfilepath):
         raise ValueError('Node list has no nodes to read from')
     return nodelist,cpunodesonlylist,gpunodesonlylist
 
+def CallFactory():
+    cmdstr='work_queue_factory -Tlocal -Cfactory.json --manager-name RenLabCluster'
+    print('Calling: '+cmdstr,flush=True)
+    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
 def CallWorker(node,envpath,masterhost,portnumber):
     if masterhost[-1].isdigit() and '-' in masterhost:
         cardvalue=masterhost[-1]
         masterhost=masterhost[:-2]
-    cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber)
+    cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) + ' -d all -o worker.debug -M '+'RenLabCLuster'
+    thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
+
+
+    cmdstr = 'cd %s ;%s' %(thedir,cmdstr)
     if node[-1].isdigit() and '-' in node:
         cardvalue=node[-1]
         node=node[:-2]
@@ -100,7 +108,7 @@ def ReadJobInfoFromDic(jobinfo):
     jobtojobpath=jobinfo['jobpath']
     jobtoram=jobinfo['ram']
     jobtonumproc=jobinfo['numproc']
-    return jobtoscratch,jobtojobpath,jobtoram,jobtonumproc 
+    return jobtoscratchspace,jobtojobpath,jobtoram,jobtonumproc 
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -124,7 +132,7 @@ def SplitScratch(string):
     return space,diskunit
 
 
-def SubmitToQueue(jobinfo,queue,taskidtojob):
+def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic):
     print("Submitting tasks...",flush=True)
     jobtoscratch,jobtojobpath,jobtoram,jobtonumproc=ReadJobInfoFromDic(jobinfo)
     for job,jobpath in jobtojobpath.items():
@@ -132,36 +140,59 @@ def SubmitToQueue(jobinfo,queue,taskidtojob):
             scratch=jobtoscratch[job]
             ram=jobtoram[job]
             numproc=jobtonumproc[job]
+            temp={} 
             print('Calling: '+str(job),flush=True)
             task = wq.PythonTask(CallJob, job, jobpath)
             if numproc!=None: 
                 numproc=int(numproc)
-                task.specify_cores(numproc)      
+                task.specify_cores(numproc)     
+                temp['cores']=numproc 
             if ram!=None:
                 ram=ConvertMemoryToMBValue(ram)           
-                task.specify_memory(ram)              
+                task.specify_memory(ram)    
+                temp['memory']=ram      
             if scratch!=None:
                 scratch=ConvertMemoryToMBValue(scratch)         
-                task.specify_disk(scratch)      
+                task.specify_disk(scratch)    
+                temp['disk']=scratch 
             if '_gpu' in job:
                 task.specify_gpus(1)          
                 task.specify_tag("GPU")
+                temp['gpus']=1
             else:
                 task.specify_max_retries(2) # let QM do retry for now (or poltype)
                 task.specify_tag("CPU")
+                temp['gpus']=1
+            foundcat=False
+            largestcat=0
+            for cat,resourcedic in cattomaxresourcedic.items():
+                if temp==resoucedic:
+                    foundcat=True
+                    break
+                catnum=cat.replace('Cat','')
+                catnum=int(catnum)
+                if catnum>largestcat:
+                    largestcat=catnum
+            if foundcat==True:
+                pass
+            else:
+                largestcat=largestcat+1
+                cat="Cat"+str(largestcat)
+                queue.specify_category_max_resources(cat, temp)
+            task.specify_category(cat)
             taskid=str(queue.submit(task))
             taskidtojob[taskid]=job
             print('Task ID of '+taskid+' is assigned to job '+job,flush=True)
-    return queue,taskidtojob
+    return queue,taskidtojob,cattomaxresourcedic
 
-def Monitor(q,taskidtojob):
+def Monitor(q,taskidtojob,cattomaxresourcedic):
     jobinfo={}
     while not q.empty():
         t = q.wait(5)
         q=CheckForTaskCancellations(q,taskidtojob)
         if t:
-            print("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk,flush=True))
-            print("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk,flush=True))
+            print("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk),flush=True)
+            print("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk),flush=True)
             if t.limits_exceeded and t.limits_exceeded.cores > -1:
                 print("Task exceeded its cores allocation.",flush=True)
             x = t.output
@@ -172,13 +203,13 @@ def Monitor(q,taskidtojob):
         else:
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
             if foundinputjobs==True:
-                q,taskidtojob=SubmitToQueue(jobinfo,q,taskidtojob)
-                Monitor(q,taskidtojob)
+                q,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic)
+                Monitor(q,taskidtojob,cattomaxresourcedic)
        
     
     jobinfo=WaitForInputJobs()
-    q,taskidtojob=SubmitToQueue(jobinfo,q,taskidtojob)
-    Monitor(q,taskidtojob)
+    q,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic)
+    Monitor(q,taskidtojob,cattomaxresourcedic)
 
 
 def WaitForInputJobs():
@@ -261,21 +292,23 @@ if jobinfofilepath==None:
     WritePIDFile(pidfile)
     try:
         taskidtojob={}
+        cattomaxresourcedic={}
         nodelist,cpunodesonlylist,gpunodesonlylist=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
-        queue = wq.WorkQueue(portnumber,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
-        queue.enable_monitoring('resourcesummary',watchdog=False)
+        queue = wq.WorkQueue(portnumber,name='RenLabCluster',debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
+        queue.enable_monitoring('resourcesummary')
         print("listening on port {}".format(queue.port),flush=True)
         CallWorkers(nodelist,envpath,masterhost,portnumber)
+        CallFactory()
         # Submit several tasks for execution:
-        queue,taskidtojob=SubmitToQueue(jobinfo,queue,taskidtojob)
-        Monitor(queue,taskidtojob)
+        queue,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic)
+        Monitor(queue,taskidtojob,cattomaxresourcedic)
     finally:
         if os.path.isfile(pidfile): # delete pid file
             os.remove(pidfile)
     
 else:
-    if canceltaskid==None and canceltasktag=None:
+    if canceltaskid==None and canceltasktag==None:
         head,tail=os.path.split(jobinfofilepath)
         split=tail.split('.')
         first=split[0]

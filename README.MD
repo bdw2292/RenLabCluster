@@ -12,6 +12,7 @@ python manager.py --jobinfofilepath=jobinfo.txt
 ```
 * The port number is set by the controlhost listening script (manager.py)
 * output.log, transaction.log for more information
+* work_queue_status -M RebLabCluster
 * See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
 * bashrcpath is optional argument, if not given there is a default bashrc file 
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
