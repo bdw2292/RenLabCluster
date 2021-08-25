@@ -83,12 +83,11 @@ def ReadJobInfoFromFile(jobinfo,filename):
         results=temp.readlines()
         temp.close()
         for line in results:
-            job,log,scratchspace,jobpath,ram,numproc=ParseJobInfo(line)
-            array=['logname','scratchspace','jobpath','ram','numproc']
+            job,scratchspace,jobpath,ram,numproc=ParseJobInfo(line)
+            array=['scratchspace','jobpath','ram','numproc']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
-            jobinfo['logname'][job]=log
             jobinfo['scratchspace'][job]=scratchspace
             jobinfo['jobpath'][job]=jobpath
             jobinfo['ram'][job]=ram
@@ -97,12 +96,11 @@ def ReadJobInfoFromFile(jobinfo,filename):
     return jobinfo
 
 def ReadJobInfoFromDic(jobinfo):
-    jobtologname=jobinfo['logname']
     jobtoscratchspace=jobinfo['scratchspace']
     jobtojobpath=jobinfo['jobpath']
     jobtoram=jobinfo['ram']
     jobtonumproc=jobinfo['numproc']
-    return jobtologname,jobtoscratch,jobtojobpath,jobtoram,jobtonumproc 
+    return jobtoscratch,jobtojobpath,jobtoram,jobtonumproc 
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -128,11 +126,10 @@ def SplitScratch(string):
 
 def SubmitToQueue(jobinfo,queue,taskidtojob):
     print("Submitting tasks...",flush=True)
-    jobtologname,jobtoscratch,jobtojobpath,jobtoram,jobtonumproc=ReadJobInfoFromDic(jobinfo)
-    for job,logname in jobtologname.items():
+    jobtoscratch,jobtojobpath,jobtoram,jobtonumproc=ReadJobInfoFromDic(jobinfo)
+    for job,jobpath in jobtojobpath.items():
         if job!=None:
             scratch=jobtoscratch[job]
-            jobpath=jobtojobpath[job]
             ram=jobtoram[job]
             numproc=jobtonumproc[job]
             print('Calling: '+str(job),flush=True)
@@ -218,7 +215,6 @@ def ParseJobInfo(line):
     linesplit=line.split('--')[1:]
     linesplit=[e.rstrip() for e in linesplit]
     job=None
-    logname=None
     scratch=None
     scratchspace=None
     jobpath=None
@@ -227,8 +223,6 @@ def ParseJobInfo(line):
     for line in linesplit:
         if "job=" in line:
             job=line.replace('job=','')
-        if "outputlogpath=" in line:
-            logname=line.replace('outputlogpath=','')
         if "scratchspace=" in line:
             scratchspace=line.replace('scratchspace=','')
         if "jobpath=" in line:
@@ -238,7 +232,7 @@ def ParseJobInfo(line):
         if "numproc=" in line:
             numproc=line.replace('numproc=','')
 
-    return job,logname,scratchspace,jobpath,ram,numproc
+    return job,scratchspace,jobpath,ram,numproc
 
 def CheckForTaskCancellations(q,taskidtojob):
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'

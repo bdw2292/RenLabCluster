@@ -28,14 +28,14 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
 ```
---job=command --outputlogpath=log --scratchspace=disk --ram=ram --numproc=numproc --jobpath=path_to_job
---job=command --outputlogpath=log --scratchspace=disk --jobpath=path_to_job
---job=command --outputlogpath=log --jobpath=path_to_job
---job=command --outputlogpath=log
+--job=command --scratchspace=disk --ram=ram --numproc=numproc --jobpath=path_to_job
+--job=command --scratchspace=disk --jobpath=path_to_job
+--job=command --jobpath=path_to_job
+--job=command 
 ```
 * nohup.out will list all of the Task IDs associated with command strings
 * CPU tasks are tagged with CPU and GPU tasks are tagged with GPU
-* To kill task by ID
+* To kill tasks by TAG
 ```
 python manager.py --canceltasktag=CPU
 ```
@@ -44,8 +44,7 @@ python manager.py --canceltasktag=CPU
 python manager.py --canceltasktag=GPU
 ```
 
-
-* To kill tasks by TAG
+* To kill task by ID
 ```
 python manager.py --canceltaskid=taskid
 ```
