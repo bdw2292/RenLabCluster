@@ -13,12 +13,19 @@ masterhost='nova'
 envpath='/home/bdw2292/.allpurpose.bashrc'
 jobinfofilepath=None
 pidfile='daemon.pid'
-opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath="])
+canceltaskid=None
+canceltasktag=None
+opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag="])
 for o, a in opts:
     if o in ("--bashrcpath"):
         envpath=a
     elif o in ("--jobinfofilepath"):
         jobinfofilepath=a
+    elif o in ("--canceltaskid"):
+        canceltaskid=a
+    elif o in ("--canceltasktag"):
+        canceltasktag=a
+
 
 def ReadNodeList(nodelistfilepath):
     nodelist=[]
@@ -76,13 +83,12 @@ def ReadJobInfoFromFile(jobinfo,filename):
         results=temp.readlines()
         temp.close()
         for line in results:
-            job,log,scratch,scratchspace,jobpath,ram,numproc=ParseJobInfo(line)
-            array=['logname','scratch','scratchspace','jobpath','ram','numproc']
+            job,log,scratchspace,jobpath,ram,numproc=ParseJobInfo(line)
+            array=['logname','scratchspace','jobpath','ram','numproc']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
             jobinfo['logname'][job]=log
-            jobinfo['scratch'][job]=scratch
             jobinfo['scratchspace'][job]=scratchspace
             jobinfo['jobpath'][job]=jobpath
             jobinfo['ram'][job]=ram
@@ -92,7 +98,6 @@ def ReadJobInfoFromFile(jobinfo,filename):
 
 def ReadJobInfoFromDic(jobinfo):
     jobtologname=jobinfo['logname']
-    jobtoscratch=jobinfo['scratch']
     jobtoscratchspace=jobinfo['scratchspace']
     jobtojobpath=jobinfo['jobpath']
     jobtoram=jobinfo['ram']
@@ -121,8 +126,8 @@ def SplitScratch(string):
     return space,diskunit
 
 
-def SubmitToQueue(jobinfo,queue):
-    print("submitting tasks...",flush=True)
+def SubmitToQueue(jobinfo,queue,taskidtojob):
+    print("Submitting tasks...",flush=True)
     jobtologname,jobtoscratch,jobtojobpath,jobtoram,jobtonumproc=ReadJobInfoFromDic(jobinfo)
     for job,logname in jobtologname.items():
         if job!=None:
@@ -143,24 +148,23 @@ def SubmitToQueue(jobinfo,queue):
                 task.specify_disk(scratch)      
             if '_gpu' in job:
                 task.specify_gpus(1)          
+                task.specify_tag("GPU")
             else:
                 task.specify_max_retries(2) # let QM do retry for now (or poltype)
-            queue.submit(task)
-    return queue
+                task.specify_tag("CPU")
+            taskid=str(queue.submit(task))
+            taskidtojob[taskid]=job
+            print('Task ID of '+taskid+' is assigned to job '+job,flush=True)
+    return queue,taskidtojob
 
-def Monitor(q):
+def Monitor(q,taskidtojob):
     jobinfo={}
     while not q.empty():
         t = q.wait(5)
+        q=CheckForTaskCancellations(q,taskidtojob)
         if t:
-            print("Task used {} cores, {} MB memory, {} MB disk",
-                t.resources_measured.cores,
-                t.resources_measured.memory,
-                t.resources_measured.disk,flush=True)
-            print("Task was allocated {} cores, {} MB memory, {} MB disk",
-                t.resources_requested.cores,
-                t.resources_requested.memory,
-                t.resources_requested.disk,flush=True)
+            print("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk,flush=True))
+            print("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk,flush=True))
             if t.limits_exceeded and t.limits_exceeded.cores > -1:
                 print("Task exceeded its cores allocation.",flush=True)
             x = t.output
@@ -171,13 +175,13 @@ def Monitor(q):
         else:
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
             if foundinputjobs==True:
-                q=SubmitToQueue(jobinfo,q)
-                Monitor(q)
+                q,taskidtojob=SubmitToQueue(jobinfo,q,taskidtojob)
+                Monitor(q,taskidtojob)
        
     
     jobinfo=WaitForInputJobs()
-    q=SubmitToQueue(jobinfo,q)
-    Monitor(q)
+    q,taskidtojob=SubmitToQueue(jobinfo,q,taskidtojob)
+    Monitor(q,taskidtojob)
 
 
 def WaitForInputJobs():
@@ -198,7 +202,6 @@ def CheckForInputJobs(jobinfo):
             foundinputjobs=True
             jobinfo=ReadJobInfoFromFile(jobinfo,f)
             array.append(f)
-            print('found inputfile ',f,flush=True)
     for f in array:
         os.remove(f)
     return jobinfo,foundinputjobs
@@ -226,8 +229,6 @@ def ParseJobInfo(line):
             job=line.replace('job=','')
         if "outputlogpath=" in line:
             logname=line.replace('outputlogpath=','')
-        if "scratchdir=" in line:
-            scratch=line.replace('scratchdir=','')
         if "scratchspace=" in line:
             scratchspace=line.replace('scratchspace=','')
         if "jobpath=" in line:
@@ -237,8 +238,26 @@ def ParseJobInfo(line):
         if "numproc=" in line:
             numproc=line.replace('numproc=','')
 
-    return job,logname,scratch,scratchspace,jobpath,ram,numproc
+    return job,logname,scratchspace,jobpath,ram,numproc
 
+def CheckForTaskCancellations(q,taskidtojob):
+    thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
+    os.chdir(thedir)
+    files=os.listdir()
+    for f in files:
+        if '_cancel.txt' in f:
+            temp=open(f,'r')
+            results=temp.readlines()
+            temp.close()
+            result=results[0]
+            resultsplit=result.split()
+            final=resultsplit[0]
+            if final in taskidtojob.keys():
+                t = q.cancel_by_taskid(final) 
+            else:
+                t = q.cancel_by_tasktag(final) 
+            os.remove(f)
+    return q
 
 thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
 
@@ -247,6 +266,7 @@ if jobinfofilepath==None:
         raise ValueError('Daemon instance is already running')
     WritePIDFile(pidfile)
     try:
+        taskidtojob={}
         nodelist,cpunodesonlylist,gpunodesonlylist=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
         queue = wq.WorkQueue(portnumber,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
@@ -254,20 +274,30 @@ if jobinfofilepath==None:
         print("listening on port {}".format(queue.port),flush=True)
         CallWorkers(nodelist,envpath,masterhost,portnumber)
         # Submit several tasks for execution:
-        queue=SubmitToQueue(jobinfo,queue)
-        Monitor(queue)
+        queue,taskidtojob=SubmitToQueue(jobinfo,queue,taskidtojob)
+        Monitor(queue,taskidtojob)
     finally:
         if os.path.isfile(pidfile): # delete pid file
             os.remove(pidfile)
     
 else:
-    head,tail=os.path.split(jobinfofilepath)
-    split=tail.split('.')
-    first=split[0]
-    newfirst=first+'_submit'
-    split[0]=newfirst
-    newname='.'.join(split)
-    newpath=os.path.join(thedir,newname)
-    shutil.copy(jobinfofilepath,newpath)
-    sys.exit()
+    if canceltaskid==None and canceltasktag=None:
+        head,tail=os.path.split(jobinfofilepath)
+        split=tail.split('.')
+        first=split[0]
+        newfirst=first+'_submit'
+        split[0]=newfirst
+        newname='.'.join(split)
+        newpath=os.path.join(thedir,newname)
+        shutil.copy(jobinfofilepath,newpath)
+        sys.exit()
+    else:
+        os.chdir(thedir)
+        if canceltaskid!=None:
+            with open(canceltaskid+'_cancel.txt', 'w') as fp:
+                fp.write(canceltaskid+'\n')
+        if canceltasktag!=None:
+            with open(canceltasktag+'_cancel.txt', 'w') as fp:
+                fp.write(canceltasktag+'\n')
+        sys.exit()
 
