@@ -8,7 +8,7 @@ import getopt
 
 
 portnumber=9123
-nodelistfilepath='nodes.txt'
+nodelistfilepath='nodeinfo.txt'
 masterhost='nova'
 envpath='/home/bdw2292/.allpurpose.bashrc'
 jobinfofilepath=None
@@ -29,8 +29,10 @@ for o, a in opts:
 
 def ReadNodeList(nodelistfilepath):
     nodelist=[]
-    gpunodesonlylist=[]
-    cpunodesonlylist=[]
+    nodetousableram={}
+    nodetohasgpu={}
+    nodetousabledisk={}
+    nodetousableproc={}
     if os.path.isfile(nodelistfilepath):
         temp=open(nodelistfilepath,'r')
         results=temp.readlines()
@@ -43,41 +45,53 @@ def ReadNodeList(nodelistfilepath):
                 linesplit=newline.split()
                 node=linesplit[0]
                 nodelist.append(node)
-                if 'CPUONLY' in line:
-                    cpunodesonlylist.append(node)
-                elif 'GPUONLY' in line:
-                    gpunodesonlylist.append(node)
+                hasgpu=linesplit[1]
+                proc=linesplit[2]
+                ram=linesplit[3]
+                scratch=linesplit[4]
+                consumratio=float(linesplit[5])
+                if hasgpu=='GPU':
+                    nodetohasgpu[node]=True
+                else:
+                    nodetohasgpu[node]=False
+                if proc!='UNK':
+                    proc=str(int(int(proc)*consumratio))
+                if ram!='UNK':
+                    ram=str(int(int(ram)*consumratio))
+                if scratch!='UNK':
+                    scratch=str(int(int(scratch)*consumratio))
+                nodetousableram[node]=ram
+                nodetousabledisk[node]=scratch
+                nodetousableproc[node]=proc              
 
         temp.close()
     if len(nodelist)==0:
         raise ValueError('Node list has no nodes to read from')
-    return nodelist,cpunodesonlylist,gpunodesonlylist
+    return nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk
 
-def CallFactory():
-    cmdstr='work_queue_factory -Tlocal -Cfactory.json --manager-name RenLabCluster'
-    print('Calling: '+cmdstr,flush=True)
-    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
-def CallWorker(node,envpath,masterhost,portnumber):
-    if masterhost[-1].isdigit() and '-' in masterhost:
-        cardvalue=masterhost[-1]
-        masterhost=masterhost[:-2]
+def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk):
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) + ' -d all -o worker.debug -M '+'RenLabCLuster'
+    if proc!='UNK':
+        cmdstr+=' '+'--cores '+proc
+    if ram!='UNK':
+        cmdstr+=' '+'--memory '+ram
+    #if disk!='UNK': program complains if report less than available?
+    #    cmdstr+=' '+'--disk '+disk
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
-
-
     cmdstr = 'cd %s ;%s' %(thedir,cmdstr)
-    if node[-1].isdigit() and '-' in node:
-        cardvalue=node[-1]
-        node=node[:-2]
-        cmdstr=SpecifyGPUCard(cardvalue,cmdstr)
+    #cmdstr=SpecifyGPUCard(cardvalue,cmdstr)
     cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
     print('Calling: '+cmdstr,flush=True)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
-def CallWorkers(nodelist,envpath,masterhost,portnumber):
+def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk):
     for node in nodelist:
-        CallWorker(node,envpath,masterhost,portnumber)       
+        hasgpu=nodetohasgpu[node]
+        proc=nodetousableproc[node]
+        ram=nodetousableram[node]
+        disk=nodetousabledisk[node]
+        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk)       
 
 def CallJob(cmdstr,path):
     import subprocess
@@ -293,13 +307,12 @@ if jobinfofilepath==None:
     try:
         taskidtojob={}
         cattomaxresourcedic={}
-        nodelist,cpunodesonlylist,gpunodesonlylist=ReadNodeList(nodelistfilepath)
+        nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
         queue = wq.WorkQueue(portnumber,name='RenLabCluster',debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
         queue.enable_monitoring('resourcesummary')
         print("listening on port {}".format(queue.port),flush=True)
-        CallWorkers(nodelist,envpath,masterhost,portnumber)
-        CallFactory()
+        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic)
         Monitor(queue,taskidtojob,cattomaxresourcedic)

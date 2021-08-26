@@ -69,10 +69,22 @@ python manager.py --canceltaskid=taskid
 
 
 
-## Hostname Node Topology
-* Saved in nodes.txt
-* include a \# in the line to ignore hostnames
+## Hostname Node Topology and Resouce Consumption
+* Saved in nodeinfo.txt
+* To generate nodeinfo.txt file run the following
 
+```
+python pingnodeswriteresources.py
+```
+* The columns within nodeinfo.txt are as follows       
+```
+node HASGPU Processors RAM Scratch ConsumptionRatio
+```
+* The resources listed are not total possible but current available as of the ping, so its good to run this before running manager.py, so has to add more safe restrictions to avoid potentially consuming too much resources
+* Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the total*consumptionratio for each resource
+
+* include a \# in the line to ignore hostnames in front (in nodeinfo.txt)
+* If UNK is in column, this indicates program could not ping host for information and this will not be used for restricting the work_queue_worker on that host
 
 ## How it works
 * Make sure to ssh into all hosts manually (so that all hosts are in your rsa keys and reachable by ssh), work_queue_workers are called via ssh on all hosts
