@@ -71,6 +71,7 @@ def ReadNodeList(nodelistfilepath):
 
 
 def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk):
+    idletimeout=100000000
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) + ' -d all -o worker.debug -M '+'RenLabCLuster'
     if proc!='UNK':
         cmdstr+=' '+'--cores '+proc
@@ -78,6 +79,7 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk):
         cmdstr+=' '+'--memory '+ram
     #if disk!='UNK': program complains if report less than available?
     #    cmdstr+=' '+'--disk '+disk
+    cmdstr+=' '+'-t '+str(idletimeout)
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
     cmdstr = 'cd %s ;%s' %(thedir,cmdstr)
     #cmdstr=SpecifyGPUCard(cardvalue,cmdstr)
