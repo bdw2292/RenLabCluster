@@ -123,10 +123,12 @@ def CheckRAM(node):
             if 'Mem' in line:
                 ram=float(linesplit[3])
                 total=float(linesplit[1])
+                break
             elif 'buffers/cache' in line:
                 ram=float(linesplit[3])
                 used=float(linesplit[2])
                 total=ram+used
+                break
         ram=str(ram)+'GB'
         ram=ConvertMemoryToMBValue(ram)
 
@@ -161,10 +163,7 @@ def CheckScratchSpace(node):
             scratchavail=d['/scratch']
         else:
             scratchavail='0G'
-        if scratchavail==False:
-            cmdstr="du -h /scratch | sort -n -r | head -n 15"
-            output=CheckOutputFromExternalNode(node,cmdstr)
-        elif scratchavail==None:
+        if scratchavail==None:
             scratchavail='0G'
         else:
             try:

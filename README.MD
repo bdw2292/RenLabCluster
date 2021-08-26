@@ -81,7 +81,7 @@ python pingnodeswriteresources.py
 node HASGPU Processors RAM Scratch ConsumptionRatio
 ```
 * The resources listed are not total possible but current available as of the ping, so its good to run this before running manager.py, so has to add more safe restrictions to avoid potentially consuming too much resources
-* Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the total*consumptionratio for each resource
+* Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the current available resource (by time running program to check)*consumptionratio for each resource. Then worker will always report static values to manager for job distribution.
 
 * include a \# in the line to ignore hostnames in front (in nodeinfo.txt)
 * If UNK is in column, this indicates program could not ping host for information and this will not be used for restricting the work_queue_worker on that host
