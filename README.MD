@@ -2,17 +2,21 @@
 
 ## Usage
 * Go to NOVA
+* Activate conda envioronment for CCTools before calling manager
+* Choose unique password that queue and work_queue_workers on cluster share. (NOTE: Currently setting password on queue and work_queue_worker seems to cause tasks to wait in queue and not get submitted).
+* Choose unique projectname this instance of queue and work_queue_workers on cluster share
+
 * run the follwing command to listen and wait for input job files
 ```
-nohup python manager.py &
+nohup python manager.py --projectname=projectname --password=password &
 ```
-* Then after preparation of input job script is complete (see readme_help), run the following command
+* Then after preparation of input job script is complete (see below), run the following command 
 ```
-python manager.py --jobinfofilepath=jobinfo.txt
+python manager.py --jobinfofilepath=jobinfo.txt 
 ```
 * The port number is set by the controlhost listening script (manager.py)
-* output.log, transaction.log for more information
-* work_queue_status -M RebLabCluster
+* output.log, queuelogger.log for more information
+* work_queue_status -M projectname
 * See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
 * bashrcpath is optional argument, if not given there is a default bashrc file 
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
@@ -27,13 +31,14 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * If no resources are specified, or all resources are specified to be 0, then a single task from the category will consume a whole worker. 
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
-* inputfiles are needed for CCtools to copy correct files to worker and run command
+* inputfilepaths are needed for CCtools to copy correct files to worker and run command
 * outputfiles are needed for CCtools to copy correct files from worker to original job location
 * absolutepathtobin is needed to give worker the absolute binary path to binary
 * For QM jobs, scratchpath and scrachdir are both needed
+* Make sure input and output filenames are unique (only if submitting many jobs to queue), since manager wil move jobs from worker back to manager and then manager will move to path in inputfilepaths
 ```
---job=command --scratchspace=disk --ram=ram --numproc=numproc --inputfiles=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
---job=command --inputfiles=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
+--job=command --scratchspace=disk --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
+--job=command --inputfilepaths=file1path,file2path --outputfiles=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
 
 ```
 * nohup.out will list all of the Task IDs associated with command strings
@@ -51,11 +56,17 @@ python manager.py --canceltasktag=GPU
 ```
 python manager.py --canceltaskid=taskid
 ```
-
-
+* Example manager initial input (on NOVA)
+```
+nohup python /home/bdw2292/ClusterDaemon/manager.py --projectname=RenLabCluster --password=secret &
+```
+* Example calling manager with input jobs
+```
+python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/ClusterDaemon/jobinfo.txt
+```
 * Example file contents for jobinfofilepath
 ```
---job=./psi4 water_3D-dma.psi4 water_3D-dma.log --scratchspace=100GB --ram=10GB --numproc=4 --inputfiles=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log --absolutepathtobin=/home/bdw2292/miniconda3/envs/poltype2/bin/psi4 --scratchpath=/scratch/bdw2292 --scratchdir=Psi4-water_3D
+--job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchspace=100GB --ram=10GB --numproc=4 --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log --absolutepathtobin=/home/bdw2292/miniconda3/envs/poltype2/bin/psi4 --scratchpath=/scratch/bdw2292 --scratchdir=Psi4-water_3D
 
 ```
 
