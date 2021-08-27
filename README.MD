@@ -98,4 +98,26 @@ node HASGPU Processors RAM Scratch ConsumptionRatio
 * Make sure to ssh into all hosts manually (so that all hosts are in your rsa keys and reachable by ssh), work_queue_workers are called via ssh on all hosts
 * A while loop continuously checks new input jobs and constantly submit to queue.
 * Multiple instances of the dameon are not allowed to run simultaneously. If the program is called while an instance is already running, the input jobs are just added to the existing job queue and then the second instance will exit. If the file daemon.pid exists, then the daemon will not start again.
+
+## Even Job Distribution
+* If you want to submit many jobs as uniformly as possible to cluster can use submitjobsevenly.py similar to manager.py as below
+* Only do this for jobs that are low resource consuming (like if poltype has keyword for externalapi in inputfile)
+* Limit to <100 per batch just to be safe
 ```
+nohup python submitjobsevenly.py &
+```
+* Can read output from submitallnode.log
+* Submit jobs via the following
+```
+python manager.py --jobinfofilepath=submitjobsevenly.py
+```
+* Inputs for jobinfofilepath
+```
+--job=cmdstr --jobfilepath=jobfilepath
+```
+* Example inputfile
+
+```
+--job=python /home/bdw2292/poltype2/PoltypeModules/poltype.py --jobfilepath=/home/bdw2292/TestDaemonSubmissionScript/DrugTestMolecules/4909
+```
+* For many poltype jobs in batch, can set keywords externalapi and inputmoleculefolderpaths to generate the jobfilepath text file and create poltype input files

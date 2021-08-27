@@ -86,8 +86,6 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
         cmdstr+=' '+'--memory '+ram
-    #if disk!='UNK': program complains if report less than available?
-    #    cmdstr+=' '+'--disk '+disk
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
@@ -214,8 +212,6 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 temp['memory']=ram      
             if scratch!=None:
                 scratch=ConvertMemoryToMBValue(scratch)      
-            #    task.specify_disk(scratch) CCTools has issues when this is specified?
-                temp['disk']=scratch 
             if '_gpu' in job:
                 task.specify_gpus(1)          
                 task.specify_tag("GPU")
@@ -307,7 +303,7 @@ def CheckForInputJobs(jobinfo):
     array=[]
     foundinputjobs=False
     for f in files:
-        if 'submit' in f:
+        if 'submit.' in f:
             foundinputjobs=True
             jobinfo=ReadJobInfoFromFile(jobinfo,f)
             array.append(f)
