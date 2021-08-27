@@ -7,7 +7,7 @@ import shutil
 import getopt
 import traceback
 
-
+waittime=15
 portnumber=9123
 nodelistfilepath='nodeinfo.txt'
 masterhost='nova'
@@ -249,10 +249,10 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
             WriteToLogFile('Task ID of '+taskid+' is assigned to job '+cmdstr)
     return queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath
 
-def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath):
+def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime):
     jobinfo={}
     while not q.empty():
-        t = q.wait(5)
+        t = q.wait(waittime)
         q=CheckForTaskCancellations(q,taskidtojob)
         if t:
             taskid=str(t.id)
@@ -265,9 +265,11 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputf
                             os.rename(file,os.path.join(inputfilepath,file))
                 
             exectime = t.cmd_execution_time/1000000
+            returnstatus=t.return_status
             WriteToLogFile('A job has finished Task %s!\n' % (str(taskid)))
+            if returnstatus!=0:
+                WriteToLogFile('Error: Job did not terminate normally')
             WriteToLogFile('Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
-            WriteToLogFile("Return_status = " + str(t.return_status))
             WriteToLogFile("Host = " + str(t.hostname) + '\n')
             WriteToLogFile("Execution time = " + str(exectime))
             WriteToLogFile("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk))
@@ -283,12 +285,12 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputf
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
             if foundinputjobs==True:
                 q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-                Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
+                Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
        
     
     jobinfo=WaitForInputJobs()
     q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-    Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
+    Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
 
 
 def WaitForInputJobs():
@@ -410,7 +412,7 @@ if jobinfofilepath==None:
         CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-        Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
+        Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
 
     except:
         traceback.print_exc(file=sys.stdout)

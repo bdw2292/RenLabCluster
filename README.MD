@@ -3,7 +3,7 @@
 ## Usage
 * Go to NOVA
 * Activate conda envioronment for CCTools before calling manager
-* Choose unique password that queue and work_queue_workers on cluster share. (NOTE: Currently setting password on queue and work_queue_worker seems to cause tasks to wait in queue and not get submitted).
+* Choose unique password that queue and work_queue_workers on cluster share. (NOTE: Currently setting password on queue and work_queue_worker seems to cause tasks to wait in queue and not get submitted). Dont need to set password currently.
 * Choose unique projectname this instance of queue and work_queue_workers on cluster share
 
 * run the follwing command to listen and wait for input job files
@@ -11,9 +11,11 @@
 nohup python manager.py --projectname=projectname --password=password &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
+* poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2
 ```
 python manager.py --jobinfofilepath=jobinfo.txt 
 ```
+* Its best practice to make sure the filename for jobinfofilepath is unique, this file is copied to directory of daemon and then read in and deleted. So if multiple calls to daemon with same filename its possible one gets overwritten.
 * The port number is set by the controlhost listening script (manager.py)
 * output.log, queuelogger.log for more information
 * work_queue_status -M projectname
@@ -66,8 +68,9 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 ```
 * Example file contents for jobinfofilepath
 ```
---job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchspace=100GB --ram=10GB --numproc=4 --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log --absolutepathtobin=/home/bdw2292/miniconda3/envs/poltype2/bin/psi4 --scratchpath=/scratch/bdw2292 --scratchdir=Psi4-water_3D
-
+--job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchdir=Psi4-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log,water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4
+--job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchdir=Psi4-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfiles=water_3D-esp.log,water_3D-esp.fchk,grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4
+--job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchdir=Gau-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfiles=water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09
 ```
 
 * Example with dynamic_gpu (needs to be in $PATH defined in bashrc files)
