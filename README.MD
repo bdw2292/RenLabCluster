@@ -25,14 +25,16 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * numproc is optional input to specify number of processors needed
 * For CPU job, specify as much info as possilbe (ram,scratch,numproc), the daemon uses this information to assign multiple jobs per node.
 * If no resources are specified, or all resources are specified to be 0, then a single task from the category will consume a whole worker. 
-* Commands in the job variable must be unique in order for daemon to recognize individually (for example poltype input command is usually "python ..../poltype.py" needs to be fixed with "cd path && python ..../poltype.py"
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
+* inputfiles are needed for CCtools to copy correct files to worker and run command
+* outputfiles are needed for CCtools to copy correct files from worker to original job location
+* absolutepathtobin is needed to give worker the absolute binary path to binary
+* For QM jobs, scratchpath and scrachdir are both needed
 ```
---job=command --scratchspace=disk --ram=ram --numproc=numproc --jobpath=path_to_job
---job=command --scratchspace=disk --jobpath=path_to_job
---job=command --jobpath=path_to_job
---job=command 
+--job=command --scratchspace=disk --ram=ram --numproc=numproc --inputfiles=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
+--job=command --inputfiles=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
+
 ```
 * nohup.out will list all of the Task IDs associated with command strings
 * CPU tasks are tagged with CPU and GPU tasks are tagged with GPU
@@ -53,19 +55,11 @@ python manager.py --canceltaskid=taskid
 
 * Example file contents for jobinfofilepath
 ```
---job=cd /home/bdw2292/PoltypeJobs/NewMethanolTest/methanol_test/qm-torsion && psi4 methanol-opt-1_1-2-254.psi4 methanol-opt-1_1-2-254.log --outputlogpath=/home/bdw2292/PoltypeJobs/NewMethanolTest/methanol_test/methanol-poltype.log --scratchdir=/scratch/bdw2292/Psi4-methanol --scratchspace=65GB
---job=cd /home/bdw2292/PoltypeJobs/NewMethanolTest/methanol_test/qm-torsion && psi4 methanol-opt-1_1-2-284.psi4 methanol-opt-1_1-2-284.log --outputlogpath=/home/bdw2292/PoltypeJobs/NewMethanolTest/methanol_test/methanol-poltype.log --scratchdir=/scratch/bdw2292/Psi4-methanol --scratchspace=65GB
+--job=./psi4 water_3D-dma.psi4 water_3D-dma.log --scratchspace=100GB --ram=10GB --numproc=4 --inputfiles=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log --absolutepathtobin=/home/bdw2292/miniconda3/envs/poltype2/bin/psi4 --scratchpath=/scratch/bdw2292 --scratchdir=Psi4-water_3D
+
 ```
 
 * Example with dynamic_gpu (needs to be in $PATH defined in bashrc files)
-```
---job=dynamic_gpu /home/bdw2292/Sims/Aniline/solvwaterboxmin.xyz -k /home/bdw2292/Sims/Aniline/aniline.key 16666 3 100 2 30 N > /home/bdw2292/Sims/Aniline/Aniline_30_16666.out --outputlogpath=/home/bdw2292/Sims/Aniline/Aniline_30_16666.out
-```
-* Example with jobpath= (changes directory to jobpath)
-```
---job=dynamic_gpu solvwaterboxproddyn.xyz -k aniline_lambda.key 166666 3 2 2 298 N > /home/bdw2292/Sims/Aniline/SolvSim/SolvSimEle1_Vdw1/SolvSimEle1_Vdw1.out --outputlogpath=/home/bdw2292/Sims/Aniline/proddynamicsjobs.txt --jobpath=/home/bdw2292/Sims/Aniline/SolvSim/SolvSimEle1_Vdw1
---job=dynamic_gpu solvwaterboxproddyn.xyz -k aniline_lambda.key 166666 3 2 2 298 N > /home/bdw2292/Sims/Aniline/SolvSim/SolvSimEle.5_Vdw1/SolvSimEle.5_Vdw1.out --outputlogpath=/home/bdw2292/Sims/Aniline/proddynamicsjobs.txt --jobpath=/home/bdw2292/Sims/Aniline/SolvSim/SolvSimEle.5_Vdw1
-```
 
 
 

@@ -70,9 +70,10 @@ def ReadNodeList(nodelistfilepath):
     return nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk
 
 
-def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk):
+def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname):
     idletimeout=100000000
-    cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) + ' -d all -o worker.debug -M '+'RenLabCLuster'
+    cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
+    cmdstr+=' -d all -o worker.debug'
     if proc!='UNK':
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
@@ -80,25 +81,21 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk):
     #if disk!='UNK': program complains if report less than available?
     #    cmdstr+=' '+'--disk '+disk
     cmdstr+=' '+'-t '+str(idletimeout)
+    cmdstr+=' '+'-M '+projectname
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
-    cmdstr = 'cd %s ;%s' %(thedir,cmdstr)
     #cmdstr=SpecifyGPUCard(cardvalue,cmdstr)
     cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
     print('Calling: '+cmdstr,flush=True)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
-def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk):
+def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname):
     for node in nodelist:
         hasgpu=nodetohasgpu[node]
         proc=nodetousableproc[node]
         ram=nodetousableram[node]
         disk=nodetousabledisk[node]
-        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk)       
+        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname)       
 
-def CallJob(cmdstr,path):
-    import subprocess
-    cmdstr = 'cd %s ;%s' %(path,cmdstr)
-    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
 
 def ReadJobInfoFromFile(jobinfo,filename):
@@ -107,24 +104,36 @@ def ReadJobInfoFromFile(jobinfo,filename):
         results=temp.readlines()
         temp.close()
         for line in results:
-            job,scratchspace,jobpath,ram,numproc=ParseJobInfo(line)
-            array=['scratchspace','jobpath','ram','numproc']
+            split=line.split()
+            if len(split)==0:
+                continue
+            cmdstr,scratchspace,ram,numproc,inputfiles,outputfiles,binpath,scratchdir,scratchpath=ParseJobInfo(line)
+            array=['scratchspace','ram','numproc','inputfiles','outputfiles','binpath','scratchdir','scratchpath']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
+            job=tuple([cmdstr,tuple(inputfiles)])
             jobinfo['scratchspace'][job]=scratchspace
-            jobinfo['jobpath'][job]=jobpath
             jobinfo['ram'][job]=ram
             jobinfo['numproc'][job]=numproc
+            jobinfo['inputfiles'][job]=inputfiles
+            jobinfo['outputfiles'][job]=outputfiles
+            jobinfo['binpath'][job]=binpath
+            jobinfo['scratchdir'][job]=scratchdir
+            jobinfo['scratchpath'][job]=scratchpath
 
     return jobinfo
 
 def ReadJobInfoFromDic(jobinfo):
     jobtoscratchspace=jobinfo['scratchspace']
-    jobtojobpath=jobinfo['jobpath']
     jobtoram=jobinfo['ram']
     jobtonumproc=jobinfo['numproc']
-    return jobtoscratchspace,jobtojobpath,jobtoram,jobtonumproc 
+    jobtoinputfiles=jobinfo['inputfiles']
+    jobtooutputfiles=jobinfo['outputfiles']
+    jobtobinpath=jobinfo['binpath']
+    jobtoscratchdir=jobinfo['scratchdir']
+    jobtoscratchpath=jobinfo['scratchpath']
+    return jobtoscratchspace,jobtoram,jobtonumproc,jobtoinputfiles,jobtooutputfiles,jobtobinpath,jobtoscratchdir,jobtoscratchpath
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -148,57 +157,83 @@ def SplitScratch(string):
     return space,diskunit
 
 
+
 def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic):
     print("Submitting tasks...",flush=True)
-    jobtoscratch,jobtojobpath,jobtoram,jobtonumproc=ReadJobInfoFromDic(jobinfo)
-    for job,jobpath in jobtojobpath.items():
+    jobtoscratch,jobtoram,jobtonumproc,jobtoinputfiles,jobtooutputfiles,jobtobinpath,jobtoscratchdir,jobtoscratchpath=ReadJobInfoFromDic(jobinfo)
+    for job,ram in jobtoram.items():
         if job!=None:
             scratch=jobtoscratch[job]
-            ram=jobtoram[job]
             numproc=jobtonumproc[job]
-            temp={} 
-            print('Calling: '+str(job),flush=True)
-            task = wq.PythonTask(CallJob, job, jobpath)
+            inputfiles=jobtoinputfiles[job]
+            outputfiles=jobtooutputfiles[job]
+            binpath=jobtobinpath[job]
+            scratchdir=jobtoscratchdir[job]
+            scratchpath=jobtoscratchpath[job]
+            cmdstr=job[0]
+            if scratchdir!=None and scratchpath!=None:
+                fullpath=os.path.join(scratchpath,scratchdir)
+                string1='mkdir '+scratchpath+' ; '
+                string2='mkdir '+fullpath+' ; '
+                cmdstr=string1+string2+cmdstr
+            temp={}
+            task = wq.Task(cmdstr)
+            if os.path.isfile(binpath):
+                head,tail=os.path.split(binpath)
+                task.specify_file(binpath, tail, wq.WORK_QUEUE_INPUT, cache=True)
+
+            for inputfile in inputfiles:
+                if os.path.isfile(inputfile):
+                    head,tail=os.path.split(inputfile)
+                    task.specify_file(inputfile, tail, wq.WORK_QUEUE_INPUT, cache=True)
+                else:
+                    task.specify_file(inputfile, inputfile, wq.WORK_QUEUE_INPUT, cache=True)
+            for outputfile in outputfiles:
+                if os.path.isfile(outputfile):
+                    head,tail=os.path.split(outputfile)
+                    task.specify_file(outputfile, tail, wq.WORK_QUEUE_OUTPUT, cache=True)
+                else:
+                    task.specify_file(outputfile, outputfile, wq.WORK_QUEUE_OUTPUT, cache=True)
             if numproc!=None: 
                 numproc=int(numproc)
                 task.specify_cores(numproc)     
-                temp['cores']=numproc 
+            #    temp['cores']=numproc 
             if ram!=None:
                 ram=ConvertMemoryToMBValue(ram)           
                 task.specify_memory(ram)    
-                temp['memory']=ram      
-            if scratch!=None:
-                scratch=ConvertMemoryToMBValue(scratch)         
-                task.specify_disk(scratch)    
-                temp['disk']=scratch 
+            #    temp['memory']=ram      
+            #if scratch!=None:
+            #    scratch=ConvertMemoryToMBValue(scratch)      
+            #    task.specify_disk(scratch)    
+            #    temp['disk']=scratch 
             if '_gpu' in job:
                 task.specify_gpus(1)          
                 task.specify_tag("GPU")
-                temp['gpus']=1
+            #    temp['gpus']=1
             else:
                 task.specify_max_retries(2) # let QM do retry for now (or poltype)
                 task.specify_tag("CPU")
-                temp['gpus']=1
-            foundcat=False
-            largestcat=0
-            for cat,resourcedic in cattomaxresourcedic.items():
-                if temp==resoucedic:
-                    foundcat=True
-                    break
-                catnum=cat.replace('Cat','')
-                catnum=int(catnum)
-                if catnum>largestcat:
-                    largestcat=catnum
-            if foundcat==True:
-                pass
-            else:
-                largestcat=largestcat+1
-                cat="Cat"+str(largestcat)
-                queue.specify_category_max_resources(cat, temp)
-            task.specify_category(cat)
+            #    temp['gpus']=1
+            #foundcat=False
+            #largestcat=0
+            #for cat,resourcedic in cattomaxresourcedic.items():
+            #    if temp==resoucedic:
+            #        foundcat=True
+            #        break
+            #    catnum=cat.replace('Cat','')
+            #    catnum=int(catnum)
+            #    if catnum>largestcat:
+            #        largestcat=catnum
+            #if foundcat==True:
+            #    pass
+            #else:
+            #    largestcat=largestcat+1
+            #    cat="Cat"+str(largestcat)
+                #queue.specify_category_max_resources(cat, temp)
+            #task.specify_category(cat)
             taskid=str(queue.submit(task))
             taskidtojob[taskid]=job
-            print('Task ID of '+taskid+' is assigned to job '+job,flush=True)
+            print('Task ID of '+taskid+' is assigned to job '+cmdstr,flush=True)
     return queue,taskidtojob,cattomaxresourcedic
 
 def Monitor(q,taskidtojob,cattomaxresourcedic):
@@ -207,16 +242,22 @@ def Monitor(q,taskidtojob,cattomaxresourcedic):
         t = q.wait(5)
         q=CheckForTaskCancellations(q,taskidtojob)
         if t:
+            exectime = t.cmd_execution_time/1000000
+            print('A job has finished!\n')
+            print('Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
+            print("return_status = " + str(t.return_status))
+            print("host = " + str(t.hostname) + '\n')
+            print("execution time = " + str(exectime))
             print("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk),flush=True)
             print("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk),flush=True)
             if t.limits_exceeded and t.limits_exceeded.cores > -1:
                 print("Task exceeded its cores allocation.",flush=True)
-            x = t.output
-            if isinstance(x,Exception):
-                print("Exception: {}".format(x),flush=True)
-            else:
-                print("Result: {}".format(x),flush=True)
         else:
+            print("Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" \
+                % (q.stats.workers_init, q.stats.workers_idle, q.stats.workers_busy, q.stats.workers_joined, q.stats.workers_removed))
+            print("Tasks: %i running, %i waiting, %i dispatched, %i submitted, %i total complete\n" \
+                % (q.stats.tasks_running, q.stats.tasks_waiting, q.stats.tasks_dispatched, q.stats.tasks_submitted, q.stats.tasks_done))
+
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
             if foundinputjobs==True:
                 q,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic)
@@ -264,22 +305,36 @@ def ParseJobInfo(line):
     job=None
     scratch=None
     scratchspace=None
-    jobpath=None
     ram=None
     numproc=None
+    inputfiles=None
+    outputfiles=None
+    binpath=None
+    scratchdir=None
+    scratchpath=None
     for line in linesplit:
         if "job=" in line:
             job=line.replace('job=','')
         if "scratchspace=" in line:
             scratchspace=line.replace('scratchspace=','')
-        if "jobpath=" in line:
-            jobpath=line.replace('jobpath=','')
+        if "scratchdir=" in line:
+            scratchdir=line.replace('scratchdir=','')
+        if "scratchpath=" in line:
+            scratchpath=line.replace('scratchpath=','')
         if "ram=" in line:
             ram=line.replace('ram=','')
         if "numproc=" in line:
             numproc=line.replace('numproc=','')
+        if "inputfiles=" in line:
+            inputfiles=line.replace('inputfiles=','')
+            inputfiles=inputfiles.split(',')
+        if "outputfiles=" in line:
+            outputfiles=line.replace('outputfiles=','')
+            outputfiles=outputfiles.split(',')
+        if "absolutepathtobin" in line:
+            binpath=line.replace('absolutepathtobin=','')
 
-    return job,scratchspace,jobpath,ram,numproc
+    return job,scratchspace,ram,numproc,inputfiles,outputfiles,binpath,scratchdir,scratchpath
 
 def CheckForTaskCancellations(q,taskidtojob):
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -301,7 +356,7 @@ def CheckForTaskCancellations(q,taskidtojob):
     return q
 
 thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
-
+projectname='RenLabCluster'
 if jobinfofilepath==None:
     if os.path.isfile(pidfile):
         raise ValueError('Daemon instance is already running')
@@ -311,10 +366,10 @@ if jobinfofilepath==None:
         cattomaxresourcedic={}
         nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
-        queue = wq.WorkQueue(portnumber,name='RenLabCluster',debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
+        queue = wq.WorkQueue(portnumber,name=projectname,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
         queue.enable_monitoring('resourcesummary')
         print("listening on port {}".format(queue.port),flush=True)
-        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk)
+        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic)
         Monitor(queue,taskidtojob,cattomaxresourcedic)
