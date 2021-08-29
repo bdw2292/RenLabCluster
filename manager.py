@@ -6,6 +6,7 @@ import time
 import shutil
 import getopt
 import traceback
+import logging
 
 waittime=15
 portnumber=9123
@@ -114,33 +115,31 @@ def ReadJobInfoFromFile(jobinfo,filename):
             split=line.split()
             if len(split)==0:
                 continue
-            cmdstr,scratchspace,ram,numproc,inputfilepaths,outputfiles,binpath,scratchdir,scratchpath=ParseJobInfo(line)
-            array=['scratchspace','ram','numproc','inputfilepaths','outputfiles','binpath','scratchdir','scratchpath']
+            cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache=ParseJobInfo(line)
+            array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
             job=tuple([cmdstr,tuple(inputfilepaths)])
-            jobinfo['scratchspace'][job]=scratchspace
             jobinfo['ram'][job]=ram
             jobinfo['numproc'][job]=numproc
             jobinfo['inputfilepaths'][job]=inputfilepaths
-            jobinfo['outputfiles'][job]=outputfiles
+            jobinfo['outputfilepaths'][job]=outputfilepaths
             jobinfo['binpath'][job]=binpath
-            jobinfo['scratchdir'][job]=scratchdir
             jobinfo['scratchpath'][job]=scratchpath
+            jobinfo['cache'][job]=cache
 
     return jobinfo
 
 def ReadJobInfoFromDic(jobinfo):
-    jobtoscratchspace=jobinfo['scratchspace']
     jobtoram=jobinfo['ram']
     jobtonumproc=jobinfo['numproc']
     jobtoinputfilepaths=jobinfo['inputfilepaths']
-    jobtooutputfiles=jobinfo['outputfiles']
     jobtobinpath=jobinfo['binpath']
-    jobtoscratchdir=jobinfo['scratchdir']
     jobtoscratchpath=jobinfo['scratchpath']
-    return jobtoscratchspace,jobtoram,jobtonumproc,jobtoinputfilepaths,jobtooutputfiles,jobtobinpath,jobtoscratchdir,jobtoscratchpath
+    jobtooutputfilepaths=jobinfo['outputfilepaths']
+    jobtocache=jobinfo['cache']
+    return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -165,43 +164,36 @@ def SplitScratch(string):
 
 
 
-def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath):
+def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths):
     WriteToLogFile("Submitting tasks...")
-    jobtoscratch,jobtoram,jobtonumproc,jobtoinputfilepaths,jobtooutputfiles,jobtobinpath,jobtoscratchdir,jobtoscratchpath=ReadJobInfoFromDic(jobinfo)
+    jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache=ReadJobInfoFromDic(jobinfo)
     for job,ram in jobtoram.items():
         if job!=None:
-            scratch=jobtoscratch[job]
             numproc=jobtonumproc[job]
             inputfilepaths=jobtoinputfilepaths[job]
-            outputfiles=jobtooutputfiles[job]
+            outputfilepaths=jobtooutputfilepaths[job]
             binpath=jobtobinpath[job]
-            scratchdir=jobtoscratchdir[job]
             scratchpath=jobtoscratchpath[job]
+            cacheval=jobtocache[job]
             cmdstr=job[0]
-            if scratchdir!=None and scratchpath!=None:
-                fullpath=os.path.join(scratchpath,scratchdir)
-                string1='mkdir '+scratchpath+' ; '
-                string2='mkdir '+fullpath+' ; '
+            if scratchpath!=None:
+                head,tail=os.path.split(scratchpath)
+                string1='mkdir '+head+' ; '
+                string2='mkdir '+scratchpath+' ; '
                 cmdstr=string1+string2+cmdstr
             temp={}
             task = wq.Task(cmdstr)
-            if os.path.isfile(binpath):
-                head,tail=os.path.split(binpath)
-                task.specify_file(binpath, tail, wq.WORK_QUEUE_INPUT, cache=False)
-            inputfilepath=None
+            if binpath!=None:
+                if os.path.isfile(binpath):
+                    head,tail=os.path.split(binpath)
+                    task.specify_file(binpath, tail, wq.WORK_QUEUE_INPUT, cache=cacheval)
             for inputfile in inputfilepaths:
                 if os.path.isfile(inputfile):
                     head,tail=os.path.split(inputfile)
-                    inputfilepath=head
-                    task.specify_file(inputfile, tail, wq.WORK_QUEUE_INPUT, cache=False)
-                else:
-                    task.specify_file(inputfile, inputfile, wq.WORK_QUEUE_INPUT, cache=False)
-            for outputfile in outputfiles:
-                if os.path.isfile(outputfile):
-                    head,tail=os.path.split(outputfile)
-                    task.specify_file(outputfile, tail, wq.WORK_QUEUE_OUTPUT, cache=False)
-                else:
-                    task.specify_file(outputfile, outputfile, wq.WORK_QUEUE_OUTPUT, cache=False)
+                    task.specify_file(inputfile, tail, wq.WORK_QUEUE_INPUT, cache=cacheval)
+            for outputfilepath in outputfilepaths:
+                head,outputfile=os.path.split(outputfilepath)
+                task.specify_file(outputfile, outputfile, wq.WORK_QUEUE_OUTPUT, cache=cacheval)
             if numproc!=None: 
                 numproc=int(numproc)
                 task.specify_cores(numproc)     
@@ -210,16 +202,15 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 ram=ConvertMemoryToMBValue(ram)           
                 task.specify_memory(ram)    
                 temp['memory']=ram      
-            if scratch!=None:
-                scratch=ConvertMemoryToMBValue(scratch)      
             if '_gpu' in job:
                 task.specify_gpus(1)          
                 task.specify_tag("GPU")
                 temp['gpus']=1
             else:
-                task.specify_max_retries(2) # let QM do retry for now (or poltype)
                 task.specify_tag("CPU")
                 temp['gpus']=1
+
+            task.specify_max_retries(2) # if some issue on node, retry on another node
             foundcat=False
             largestcat=0
             for cat,resourcedic in cattomaxresourcedic.items():
@@ -238,27 +229,35 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 #queue.specify_category_max_resources(cat, temp)
             #task.specify_category(cat)
             taskid=str(queue.submit(task))
-            taskidtooutputfiles[taskid]=outputfiles
-            if inputfilepath!=None:
-                taskidtoinputfilepath[taskid]=inputfilepath
+            taskidtooutputfilepaths[taskid]=outputfilepaths
             taskidtojob[taskid]=job
             WriteToLogFile('Task ID of '+taskid+' is assigned to job '+cmdstr)
-    return queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath
+    return queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths
 
-def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime):
+def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime):
     jobinfo={}
     while not q.empty():
         t = q.wait(waittime)
         q=CheckForTaskCancellations(q,taskidtojob)
         if t:
             taskid=str(t.id)
-            outputfiles=taskidtooutputfiles[taskid]
-            if taskid in taskidtoinputfilepath.keys():
-                inputfilepath=taskidtoinputfilepath[taskid]
-                if os.path.isdir(inputfilepath):
-                    for file in outputfiles:
-                        if os.path.isfile(file):
-                            os.rename(file,os.path.join(inputfilepath,file))
+            newoutputfilepaths=[] # sort by largest file size and move largest first (like move arc first so dont submit next job before arc and dyn are returned
+            if taskid in taskidtooutputfilepaths.keys():
+                outputfilepaths=taskidtooutputfilepaths[taskid]
+                for outputfilepath in outputfilepaths:
+                    head,tail=os.path.split(outputfilepath)
+                    if os.path.isdir(head):
+                        if os.path.isfile(tail):
+                           newoutputfilepaths.append(outputfilepath) 
+            newfiles=[os.path.split(i)[1] for i in newoutputfilepaths]
+            newfilestofilepaths=dict(zip(newfiles,newoutputfilepaths))
+            filesizes=[os.stat(thefile).st_size for thefile in newfiles]
+            newfilestofilesizes=dict(zip(newfiles,filesizes))
+            sorteddic={k: v for k, v in sorted(newfilestofilesizes.items(), key=lambda item: item[1],reverse=True)}  
+            for filename in sorteddic.keys():
+                filepath=newfilestofilepaths[filename]
+                WriteToLogFile('Moving file '+filename)
+                shutil.move(os.path.join(os.getcwd(),filename),filepath)
                 
             exectime = t.cmd_execution_time/1000000
             returnstatus=t.return_status
@@ -280,13 +279,13 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputf
 
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
             if foundinputjobs==True:
-                q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-                Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
+                q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths)
+                Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime)
        
     
     jobinfo=WaitForInputJobs()
-    q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-    Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
+    q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths=SubmitToQueue(jobinfo,q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths)
+    Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime)
 
 
 def WaitForInputJobs():
@@ -324,21 +323,16 @@ def ParseJobInfo(line):
     linesplit=[e.rstrip() for e in linesplit]
     job=None
     scratch=None
-    scratchspace=None
     ram=None
     numproc=None
     inputfilepaths=None
-    outputfiles=None
+    outputfilepaths=None
     binpath=None
-    scratchdir=None
     scratchpath=None
+    cache=False
     for line in linesplit:
         if "job=" in line:
             job=line.replace('job=','')
-        if "scratchspace=" in line:
-            scratchspace=line.replace('scratchspace=','')
-        if "scratchdir=" in line:
-            scratchdir=line.replace('scratchdir=','')
         if "scratchpath=" in line:
             scratchpath=line.replace('scratchpath=','')
         if "ram=" in line:
@@ -348,13 +342,15 @@ def ParseJobInfo(line):
         if "inputfilepaths=" in line:
             inputfilepaths=line.replace('inputfilepaths=','')
             inputfilepaths=inputfilepaths.split(',')
-        if "outputfiles=" in line:
-            outputfiles=line.replace('outputfiles=','')
-            outputfiles=outputfiles.split(',')
+        if "outputfilepaths=" in line:
+            outputfilepaths=line.replace('outputfilepaths=','')
+            outputfilepaths=outputfilepaths.split(',')
         if "absolutepathtobin" in line:
             binpath=line.replace('absolutepathtobin=','')
+        if "cache" in line:
+            cache=True
 
-    return job,scratchspace,ram,numproc,inputfilepaths,outputfiles,binpath,scratchdir,scratchpath
+    return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache
 
 def CheckForTaskCancellations(q,taskidtojob):
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -377,9 +373,9 @@ def CheckForTaskCancellations(q,taskidtojob):
 
 def WriteToLogFile(string):
     now = time.strftime("%c",time.localtime())
-    masterloghandle.write(now+' '+string+'\n')
-    masterloghandle.flush()
-    os.fsync(masterloghandle.fileno())
+    string=now+' '+string+'\n'
+    logging.info(string)
+
 
 
 if jobinfofilepath==None:
@@ -390,25 +386,23 @@ if jobinfofilepath==None:
         raise ValueError('Please set projectname for manager, needed for multiple instances of managers and work_queue_workers running on cluster via different users.')
 
     try:
-        global masterloghandle
-        masterloghandle=open(loggerfile,'w',buffering=1)
+        logging.basicConfig(filename=loggerfile, filemode='w', format='%(name)s - %(levelname)s - %(message)s',level=logging.INFO)
         if os.path.isfile(pidfile):
             raise ValueError('Daemon instance is already running')
         WritePIDFile(pidfile)
         taskidtojob={}
         cattomaxresourcedic={}
-        taskidtooutputfiles={}
-        taskidtoinputfilepath={}
+        taskidtooutputfilepaths={}
         nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
         queue = wq.WorkQueue(portnumber,name=projectname,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
-        queue.enable_monitoring('resourcesummary')
+        queue.enable_monitoring('resourcesummary',watchdog=False)
         #queue.specify_password(password) CCTools has issues when this is specified
         WriteToLogFile("listening on port {}".format(queue.port))
         CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password)
         # Submit several tasks for execution:
-        queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath)
-        Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfiles,taskidtoinputfilepath,waittime)
+        queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths)
+        Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime)
 
     except:
         traceback.print_exc(file=sys.stdout)

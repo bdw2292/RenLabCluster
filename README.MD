@@ -12,6 +12,7 @@ nohup python manager.py --projectname=projectname --password=password &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
 * poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2
+* AMOEBAAnnihilator will also prepare inputs for you with keyword in input file (externalapi=/home/bdw2292/ClusterDaemon/manager.py) https://github.com/bdw2292/AMOEBAAnnihilator
 ```
 python manager.py --jobinfofilepath=jobinfo.txt 
 ```
@@ -25,7 +26,6 @@ python manager.py --jobinfofilepath=jobinfo.txt
 
 
 ## Job Info File Path
-* scratchspace are optional assignments for QM jobs, scratchspace needs GB unit after arg (--scratchspace=100GB)
 * outputlogpath outputs status of job from daemon to outputlog file 
 * ram is optional input to specify how much ram is needed (in GB,--ram=100GB)
 * numproc is optional input to specify number of processors needed
@@ -34,14 +34,13 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
 * inputfilepaths are needed for CCtools to copy correct files to worker and run command
-* outputfiles are needed for CCtools to copy correct files from worker to original job location
-* absolutepathtobin is needed to give worker the absolute binary path to binary
-* For QM jobs, scratchpath and scrachdir are both needed
-* Make sure input and output filenames are unique (only if submitting many jobs to queue), since manager wil move jobs from worker back to manager and then manager will move to path in inputfilepaths
+* outputfilepaths are needed for CCtools to copy correct files from worker to original job location. In general inputfilepath and outputfilepath is not necesarrily the same (take tinker BAR for example)
+* absolutepathtobin is needed only if the executable is not in PATH on the worked (there is a bashrc that is sourced by default) 
+* For QM jobs, scratchpath is needed
+* Make sure input and output filenames are unique (only if submitting many jobs to queue), since manager wil move jobs from worker back to manager directory (dont want to overwrite filenames that are same) and then manager will move to path in outputfilepath
 ```
---job=command --scratchspace=disk --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfiles=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
---job=command --inputfilepaths=file1path,file2path --outputfiles=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --scratchdir=scratchdir
-
+--job=command --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfilepaths=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs 
+--job=command --inputfilepaths=file1path,file2path --outputfilepaths=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs 
 ```
 * nohup.out will list all of the Task IDs associated with command strings
 * CPU tasks are tagged with CPU and GPU tasks are tagged with GPU
@@ -68,13 +67,17 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 ```
 * Example file contents for jobinfofilepath
 ```
---job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchdir=Psi4-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfiles=water_3D-dma.log,water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4
---job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchdir=Psi4-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfiles=water_3D-esp.log,water_3D-esp.fchk,grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4
---job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchdir=Gau-water_3D --scratchpath=/scratch/bdw2292 --scratchspace=100GB --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfiles=water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09
+--job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4  
+--job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.fchk,/home/bdw2292/PoltypeJobs/SymmetryWater/grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 
+--job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchpath=/scratch/bdw2292/Gau-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09 
 ```
 
 * Example with dynamic_gpu (needs to be in $PATH defined in bashrc files)
+```
+--job=dynamic_gpu solvwaterboxequil.xyz -k solvfinal_config.key 16665 2 1 2 50 N > TestRESPAGasDefaults_SolvSim_50_16665_NVT.out --numproc=1 --inputfilepaths=/work/bdw2292/TestRESPAGasDefaults/solvwaterboxequil.xyz,/work/bdw2292/TestRESPAGasDefaults/solvfinal_config.key,/work/bdw2292/TestRESPAGasDefaults/amoebabio18.prm --outputfilepaths=/work/bdw2292/TestRESPAGasDefaults/TestRESPAGasDefaults_SolvSim_50_16665_NVT.out,/work/bdw2292/TestRESPAGasDefaults/solvwaterboxequil.arc,/work/bdw2292/TestRESPAGasDefaults/solvwaterboxequil.dyn
+--job=dynamic solvwaterboxproddyn.xyz -k solvwaterboxproddyn.key 2000000 0.1 2 2 300  > SolvSimEle1_Vdw1.out --numproc=1 --inputfilepaths=/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.xyz,/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.key,/work/bdw2292/TestSTOCHGasDefaults/amoebabio18.prm,/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.arc,/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.dyn --outputfilepaths=/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/SolvSimEle1_Vdw1.out,/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.arc,/work/bdw2292/TestSTOCHGasDefaults/SolvSim/SolvSimEle1_Vdw1/solvwaterboxproddyn.dyn
 
+```
 
 
 ## Hostname Node Topology and Resouce Consumption
@@ -109,7 +112,7 @@ nohup python submitjobsevenly.py &
 * Can read output from submitallnode.log
 * Submit jobs via the following
 ```
-python manager.py --jobinfofilepath=submitjobsevenly.py
+python submitjobsevenly.py --jobinfofilepath=jobinfofilepath
 ```
 * Inputs for jobinfofilepath
 ```
@@ -121,3 +124,7 @@ python manager.py --jobinfofilepath=submitjobsevenly.py
 --job=python /home/bdw2292/poltype2/PoltypeModules/poltype.py --jobfilepath=/home/bdw2292/TestDaemonSubmissionScript/DrugTestMolecules/4909
 ```
 * For many poltype jobs in batch, can set keywords externalapi and inputmoleculefolderpaths to generate the jobfilepath text file and create poltype input files
+
+
+## Todo
+* Add option to tell manager how much estimated disk space for MD jobs (arc files get large), then can enforce disk space limits (not important right now)

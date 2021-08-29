@@ -4,6 +4,7 @@ import time
 import getopt
 import subprocess
 import shutil
+import logging
 
 nodelistfilepath='nodeinfo.txt'
 envpath='/home/bdw2292/.allpurpose.bashrc'
@@ -63,10 +64,8 @@ def ReadNodeList(nodelistfilepath):
 
 def WriteToLogFile(string):
     now = time.strftime("%c",time.localtime())
-    masterloghandle.write(now+' '+string+'\n')
-    masterloghandle.flush()
-    os.fsync(masterloghandle.fileno())
-
+    string=now+' '+string+'\n'
+    logging.info(string)
 
 
 def WaitForInputJobs():
@@ -125,22 +124,23 @@ def ParseJobInfo(line):
 
     return job,jobfilepath
 
-def CallJob(node,envpath,cmdstr,processes,jobpath):
+def CallJob(node,envpath,cmdstr,processes,jobpath,pidtojobpath):
     cmdstr = 'ssh %s "source %s ; cd %s ; %s"' %(str(node),envpath,jobpath,cmdstr)
     WriteToLogFile('Calling: '+cmdstr)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
     pid=process.pid
+    pidtojobpath[pid]=jobpath
     WriteToLogFile('PID '+str(pid)+' is assigned to '+cmdstr)
     processes.append(process)
-    return processes
+    return processes,pidtojobpath
 
-def CallJobs(nodetojobs,envpath,processes,jobinfo):
+def CallJobs(nodetojobs,envpath,processes,jobinfo,pidtojobpath):
     for node,jobs in nodetojobs.items():
         for job in jobs:
             jobpath=jobinfo['jobfilepath'][job]
             cmdstr=job[0]
-            processes=CallJob(node,envpath,cmdstr,processes,jobpath)
-    return processes
+            processes,pidtojobpath=CallJob(node,envpath,cmdstr,processes,jobpath,pidtojobpath)
+    return processes,pidtojobpath
 
 
 def chunks(lst, n):
@@ -168,42 +168,43 @@ def DistributeEvenly(nodelist,jobinfo):
            nodetojobs[node]=jobs
     return nodetojobs 
         
-def Monitor(processes,nodelist,envpath):
+def Monitor(processes,nodelist,envpath,pidtojobpath):
     delarray=[]
     for p in processes:
         poll=p.poll()
         pid=p.pid
         if poll is None:
-            WriteToLogFile('Process still running '+str(pid))
+            pass
         else:
             returnstatus=p.returncode
             delarray.append(p)
             if returnstatus!=0:
-                WriteToLogFile('Process failed '+str(pid))
+                jobpath=pidtojobpath[pid]
+                WriteToLogFile('Process failed '+str(pid)+' '+jobpath)
     for p in delarray:
         processes.remove(p)
+    WriteToLogFile('Processes active '+str(len(processes)))
     jobinfo={}
     jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)   
     if foundinputjobs==True:
         nodetojobs=DistributeEvenly(nodelist,jobinfo)
-        processes=CallJobs(nodetojobs,envpath,processes,jobinfo)
-        Monitor(processes,nodelist,envpath)
+        processes,pidtojobpath=CallJobs(nodetojobs,envpath,processes,jobinfo,pidtojobpath)
+        Monitor(processes,nodelist,envpath,pidtojobpath)
     else:
-        WriteToLogFile('Waiting for jobs')
         time.sleep(30)
-        Monitor(processes,nodelist,envpath)
+        Monitor(processes,nodelist,envpath,pidtojobpath)
 
 
 thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
 if jobinfofilepath==None:
     processes=[]
-    global masterloghandle
-    masterloghandle=open(loggerfile,'a',buffering=1)
+    pidtojobpath={}
+    logging.basicConfig(filename=loggerfile, filemode='w', format='%(name)s - %(levelname)s - %(message)s',level=logging.INFO)
     nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk=ReadNodeList(nodelistfilepath)
     jobinfo=WaitForInputJobs()
     nodetojobs=DistributeEvenly(nodelist,jobinfo)
-    processes=CallJobs(nodetojobs,envpath,processes,jobinfo)
-    Monitor(processes,nodelist,envpath)
+    processes,pidtojobpath=CallJobs(nodetojobs,envpath,processes,jobinfo,pidtojobpath)
+    Monitor(processes,nodelist,envpath,pidtojobpath)
 else:
     head,tail=os.path.split(jobinfofilepath)
     split=tail.split('.')
