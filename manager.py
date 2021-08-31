@@ -116,6 +116,10 @@ def ReadJobInfoFromFile(jobinfo,filename):
             if len(split)==0:
                 continue
             cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache=ParseJobInfo(line)
+
+            if inputfilepaths==None:
+                WriteToLogFile('WARNING inputfilepaths is not specified, will ignore input')
+                continue
             array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache']
             for key in array:
                 if key not in jobinfo.keys():
@@ -187,13 +191,15 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 if os.path.isfile(binpath):
                     head,tail=os.path.split(binpath)
                     task.specify_file(binpath, tail, wq.WORK_QUEUE_INPUT, cache=cacheval)
-            for inputfile in inputfilepaths:
-                if os.path.isfile(inputfile):
-                    head,tail=os.path.split(inputfile)
-                    task.specify_file(inputfile, tail, wq.WORK_QUEUE_INPUT, cache=cacheval)
-            for outputfilepath in outputfilepaths:
-                head,outputfile=os.path.split(outputfilepath)
-                task.specify_file(outputfile, outputfile, wq.WORK_QUEUE_OUTPUT, cache=cacheval)
+            if inputfilepaths!=None:
+                for inputfile in inputfilepaths:
+                    if os.path.isfile(inputfile):
+                        head,tail=os.path.split(inputfile)
+                        task.specify_file(inputfile, tail, wq.WORK_QUEUE_INPUT, cache=cacheval)
+            if outputfilepaths!=None:
+                for outputfilepath in outputfilepaths:
+                    head,outputfile=os.path.split(outputfilepath)
+                    task.specify_file(outputfile, outputfile, wq.WORK_QUEUE_OUTPUT, cache=cacheval)
             if numproc!=None: 
                 numproc=int(numproc)
                 task.specify_cores(numproc)     
@@ -244,11 +250,12 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime):
             newoutputfilepaths=[] # sort by largest file size and move largest first (like move arc first so dont submit next job before arc and dyn are returned
             if taskid in taskidtooutputfilepaths.keys():
                 outputfilepaths=taskidtooutputfilepaths[taskid]
-                for outputfilepath in outputfilepaths:
-                    head,tail=os.path.split(outputfilepath)
-                    if os.path.isdir(head):
-                        if os.path.isfile(tail):
-                           newoutputfilepaths.append(outputfilepath) 
+                if outputfilepaths!=None:
+                    for outputfilepath in outputfilepaths:
+                        head,tail=os.path.split(outputfilepath)
+                        if os.path.isdir(head):
+                            if os.path.isfile(tail):
+                               newoutputfilepaths.append(outputfilepath) 
             newfiles=[os.path.split(i)[1] for i in newoutputfilepaths]
             newfilestofilepaths=dict(zip(newfiles,newoutputfilepaths))
             filesizes=[os.stat(thefile).st_size for thefile in newfiles]

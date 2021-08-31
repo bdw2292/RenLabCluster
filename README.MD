@@ -65,11 +65,22 @@ nohup python /home/bdw2292/ClusterDaemon/manager.py --projectname=RenLabCluster 
 ```
 python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/ClusterDaemon/jobinfo.txt
 ```
-* Example file contents for jobinfofilepath
+* Example file contents for jobinfofilepath with Psi4/Gaussian
 ```
 --job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4  
 --job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.fchk,/home/bdw2292/PoltypeJobs/SymmetryWater/grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 
 --job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchpath=/scratch/bdw2292/Gau-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09 
+```
+
+* Example poltype files inputs
+* Need the cd at the front. Can only do this for nodes physically connected to NOVA, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
+```
+--job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=4  --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
+```
+* Example AMOEBA Annihilator inputs
+```
+--job=cd /work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation && python /home/bdw2292/AMOEBAAnnihhilator/AMOEBAAnnihilatorModules/amoebaannihilator.py --numproc=1 --inputfilepaths=/work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation/AMOEBA.ini
+
 ```
 
 * Example with dynamic_gpu (needs to be in $PATH defined in bashrc files)
@@ -101,30 +112,6 @@ node HASGPU Processors RAM Scratch ConsumptionRatio
 * Make sure to ssh into all hosts manually (so that all hosts are in your rsa keys and reachable by ssh), work_queue_workers are called via ssh on all hosts
 * A while loop continuously checks new input jobs and constantly submit to queue.
 * Multiple instances of the dameon are not allowed to run simultaneously. If the program is called while an instance is already running, the input jobs are just added to the existing job queue and then the second instance will exit. If the file daemon.pid exists, then the daemon will not start again.
-
-## Even Job Distribution
-* If you want to submit many jobs as uniformly as possible to cluster can use submitjobsevenly.py similar to manager.py as below
-* Only do this for jobs that are low resource consuming (like if poltype has keyword for externalapi in inputfile)
-* Limit to <100 per batch just to be safe
-```
-nohup python submitjobsevenly.py &
-```
-* Can read output from submitallnode.log
-* Submit jobs via the following
-```
-python submitjobsevenly.py --jobinfofilepath=jobinfofilepath
-```
-* Inputs for jobinfofilepath
-```
---job=cmdstr --jobfilepath=jobfilepath
-```
-* Example inputfile
-
-```
---job=python /home/bdw2292/poltype2/PoltypeModules/poltype.py --jobfilepath=/home/bdw2292/TestDaemonSubmissionScript/DrugTestMolecules/4909
-```
-* For many poltype jobs in batch, can set keywords externalapi and inputmoleculefolderpaths to generate the jobfilepath text file and create poltype input files
-
 
 ## Todo
 * Add option to tell manager how much estimated disk space for MD jobs (arc files get large), then can enforce disk space limits (not important right now)
