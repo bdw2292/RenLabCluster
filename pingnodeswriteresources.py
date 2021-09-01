@@ -29,9 +29,10 @@ def PingNodesAndDetermineNodeInfo(nodelist):
     nodetototalcpu={}
     nodetototalscratch={}
     nodetocardcount={}
+    nodetocardtype={}
     for nodeidx in tqdm(range(len(nodelist)),desc='Pinging nodes'):
         node=nodelist[nodeidx]
-        cudaversion,cardcount=CheckGPUStats(node)
+        cudaversion,cardcount,cardtype=CheckGPUStats(node)
         nproc=CheckTotalCPU(node)
         currentproc=CheckCurrentCPUUsage(node)
         if type(nproc)==int and type(currentproc)==int:
@@ -48,13 +49,16 @@ def PingNodesAndDetermineNodeInfo(nodelist):
         nodetototalram[node]=ram
         nodetototalcpu[node]=nproc
         nodetototalscratch[node]=scratch
+
         if cudaversion!=None:
             gpunodes.append(node)
             nodetocardcount[node]=cardcount
+            nodetocardtype[node]=cardtype
         else:
             nodetocardcount[node]=0
+            nodetocardtype[node]='UNK'
 
-    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount
+    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype
 
 def CheckGPUStats(node):
     cmdstr='nvidia-smi'
@@ -64,6 +68,7 @@ def CheckGPUStats(node):
     cudaversion=None
     cardcount=0
     nodedead=False
+    cardtype=None
     if nodedead==False:
         lines=output.split('\n')
         for line in lines:
@@ -72,7 +77,21 @@ def CheckGPUStats(node):
                 cudaversion=linesplit[8]
             if len(linesplit)==15:
                 cardcount+=1
-    return cudaversion,cardcount
+
+    cmdstr='nvidia-smi -q'
+    job='ssh %s "%s"'%(node,cmdstr)
+    p = subprocess.Popen(job, stdout=subprocess.PIPE,shell=True)
+    nodedead,output=CheckForDeadNode(p,node)
+    if nodedead==False:
+        lines=output.split('\n')
+        for line in lines:
+            if "Product Name" in line:
+                linesplit=line.split()
+                for e in linesplit:
+                    if e.isdigit():
+                        cardtype=e
+
+    return cudaversion,cardcount,cardtype
 
 def CheckForDeadNode(process,node):
     nodedead=False
@@ -217,9 +236,9 @@ def CheckCurrentCPUUsage(node):
 
 
 
-def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount):
+def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype):
     temp=open(filename,'w')
-    columns='#node'+' '+'HASGPU'+' '+'GPUCARDS'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'ConsumptionRatio'+'\n'
+    columns='#node'+' '+'HASGPU'+' '+'CARDTYPE'+' '+'GPUCARDS'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'ConsumptionRatio'+'\n'
     temp.write(columns)
     for node in nodelist:
         hasgpu=False
@@ -233,13 +252,21 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
         nproc=str(nodetototalcpu[node])
         scratch=str(nodetototalscratch[node])
         cardcount=str(nodetocardcount[node])
-        string=node+' '+gpustring+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
+        cardtype=nodetocardtype[node]
+        if cardtype!='UNK' and cardtype!=None:
+            value=float(cardtype)
+            if value<mincardtype:
+                cardcount='0'
+        if cardtype==None:
+            cardtype='UNK'
+        string=node+' '+gpustring+' '+cardtype+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
         temp.write(string)
     temp.close()
 
+mincardtype=1000
 nodelistfilepath='nodes.txt'
 consumptionratio='.8'
 nodelist=ReadNodeList(nodelistfilepath)
-gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount=PingNodesAndDetermineNodeInfo(nodelist)
+gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype=PingNodesAndDetermineNodeInfo(nodelist)
 filename='nodeinfo.txt'
-WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount)
+WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype)

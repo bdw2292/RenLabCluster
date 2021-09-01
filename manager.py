@@ -56,11 +56,11 @@ def ReadNodeList(nodelistfilepath):
                 node=linesplit[0]
                 nodelist.append(node)
                 hasgpu=linesplit[1]
-                cardcount=linesplit[2]
-                proc=linesplit[3]
-                ram=linesplit[4]
-                scratch=linesplit[5]
-                consumratio=float(linesplit[6])
+                cardcount=linesplit[3]
+                proc=linesplit[4]
+                ram=linesplit[5]
+                scratch=linesplit[6]
+                consumratio=float(linesplit[7])
                 if hasgpu=='GPU':
                     nodetohasgpu[node]=True
                 else:
