@@ -271,13 +271,16 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime):
             WriteToLogFile('A job has finished Task %s!\n' % (str(taskid)))
             if returnstatus!=0:
                 WriteToLogFile('Error: Job did not terminate normally')
-            WriteToLogFile('Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
-            WriteToLogFile("Host = " + str(t.hostname) + '\n')
-            WriteToLogFile("Execution time = " + str(exectime))
-            WriteToLogFile("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk))
-            WriteToLogFile("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk))
-            if t.limits_exceeded and t.limits_exceeded.cores > -1:
-                WriteToLogFile("Task exceeded its cores allocation.")
+            try:
+                WriteToLogFile('Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
+                WriteToLogFile("Host = " + str(t.hostname) + '\n')
+                WriteToLogFile("Execution time = " + str(exectime))
+                WriteToLogFile("Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk))
+                WriteToLogFile("Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk))
+                if t.limits_exceeded and t.limits_exceeded.cores > -1:
+                    WriteToLogFile("Task exceeded its cores allocation.")
+            except:
+                pass # sometimes task returns as None?? not very often though
         else:
             WriteToLogFile("Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" \
                 % (q.stats.workers_init, q.stats.workers_idle, q.stats.workers_busy, q.stats.workers_joined, q.stats.workers_removed))
