@@ -42,6 +42,7 @@ def ReadNodeList(nodelistfilepath):
     nodetohasgpu={}
     nodetousabledisk={}
     nodetousableproc={}
+    nodetocardcount={}
     if os.path.isfile(nodelistfilepath):
         temp=open(nodelistfilepath,'r')
         results=temp.readlines()
@@ -55,10 +56,11 @@ def ReadNodeList(nodelistfilepath):
                 node=linesplit[0]
                 nodelist.append(node)
                 hasgpu=linesplit[1]
-                proc=linesplit[2]
-                ram=linesplit[3]
-                scratch=linesplit[4]
-                consumratio=float(linesplit[5])
+                cardcount=linesplit[2]
+                proc=linesplit[3]
+                ram=linesplit[4]
+                scratch=linesplit[5]
+                consumratio=float(linesplit[6])
                 if hasgpu=='GPU':
                     nodetohasgpu[node]=True
                 else:
@@ -71,15 +73,16 @@ def ReadNodeList(nodelistfilepath):
                     scratch=str(int(int(scratch)*consumratio))
                 nodetousableram[node]=ram
                 nodetousabledisk[node]=scratch
-                nodetousableproc[node]=proc              
+                nodetousableproc[node]=proc    
+                nodetocardcount[node]=cardcount          
 
         temp.close()
     if len(nodelist)==0:
         raise ValueError('Node list has no nodes to read from')
-    return nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk
+    return nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,nodetocardcount
 
 
-def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password):
+def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount):
     idletimeout=100000000
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
     cmdstr+=' -d all -o worker.debug'
@@ -87,6 +90,7 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
         cmdstr+=' '+'--memory '+ram
+    cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
@@ -96,13 +100,14 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
     WriteToLogFile('Calling: '+cmdstr)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
-def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password):
+def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount):
     for node in nodelist:
         hasgpu=nodetohasgpu[node]
         proc=nodetousableproc[node]
         ram=nodetousableram[node]
         disk=nodetousabledisk[node]
-        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password)       
+        cardcount=nodetocardcount[node]
+        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount)       
 
 
 
@@ -208,14 +213,13 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 ram=ConvertMemoryToMBValue(ram)           
                 task.specify_memory(ram)    
                 temp['memory']=ram      
-            if '_gpu' in job:
+            if '_gpu' in cmdstr:
                 task.specify_gpus(1)          
                 task.specify_tag("GPU")
                 temp['gpus']=1
             else:
                 task.specify_tag("CPU")
                 temp['gpus']=1
-
             task.specify_max_retries(2) # if some issue on node, retry on another node
             foundcat=False
             largestcat=0
@@ -403,13 +407,13 @@ if jobinfofilepath==None:
         taskidtojob={}
         cattomaxresourcedic={}
         taskidtooutputfilepaths={}
-        nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk=ReadNodeList(nodelistfilepath)
+        nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,nodetocardcount=ReadNodeList(nodelistfilepath)
         jobinfo=WaitForInputJobs()
         queue = wq.WorkQueue(portnumber,name=projectname,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
         queue.enable_monitoring('resourcesummary',watchdog=False)
         #queue.specify_password(password) CCTools has issues when this is specified
         WriteToLogFile("listening on port {}".format(queue.port))
-        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password)
+        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths)
         Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime)

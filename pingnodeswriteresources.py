@@ -28,6 +28,7 @@ def PingNodesAndDetermineNodeInfo(nodelist):
     nodetototalram={}
     nodetototalcpu={}
     nodetototalscratch={}
+    nodetocardcount={}
     for nodeidx in tqdm(range(len(nodelist)),desc='Pinging nodes'):
         node=nodelist[nodeidx]
         cudaversion,cardcount=CheckGPUStats(node)
@@ -49,8 +50,11 @@ def PingNodesAndDetermineNodeInfo(nodelist):
         nodetototalscratch[node]=scratch
         if cudaversion!=None:
             gpunodes.append(node)
+            nodetocardcount[node]=cardcount
+        else:
+            nodetocardcount[node]=0
 
-    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch
+    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount
 
 def CheckGPUStats(node):
     cmdstr='nvidia-smi'
@@ -213,9 +217,9 @@ def CheckCurrentCPUUsage(node):
 
 
 
-def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio):
+def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount):
     temp=open(filename,'w')
-    columns='#node'+' '+'HASGPU'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'ConsumptionRatio'+'\n'
+    columns='#node'+' '+'HASGPU'+' '+'GPUCARDS'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'ConsumptionRatio'+'\n'
     temp.write(columns)
     for node in nodelist:
         hasgpu=False
@@ -228,13 +232,14 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
         ram=str(nodetototalram[node])
         nproc=str(nodetototalcpu[node])
         scratch=str(nodetototalscratch[node])
-        string=node+' '+gpustring+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
+        cardcount=str(nodetocardcount[node])
+        string=node+' '+gpustring+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
         temp.write(string)
     temp.close()
 
 nodelistfilepath='nodes.txt'
 consumptionratio='.8'
 nodelist=ReadNodeList(nodelistfilepath)
-gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch=PingNodesAndDetermineNodeInfo(nodelist)
+gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount=PingNodesAndDetermineNodeInfo(nodelist)
 filename='nodeinfo.txt'
-WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio)
+WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount)
