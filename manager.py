@@ -87,14 +87,14 @@ def ReadNodeList(nodelistfilepath):
 def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount,queuelogger):
     idletimeout=100000000
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
-    cmdstr+=' -d all -o worker.debug'
+    cmdstr+=' -d all -o /tmp/worker.debug'
     if proc!='UNK':
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
         cmdstr+=' '+'--memory '+ram
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
-    cmdstr+=' '+'-M '+projectname
+    cmdstr+=' '+'---M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
     cmdstr+=' '+'--parent-death'
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -353,7 +353,7 @@ def ParseJobInfo(line):
     binpath=None
     scratchpath=None
     cache=False
-    inputline=None
+    inputline=line
     for line in linesplit:
         if "job=" in line:
             job=line.replace('job=','')
@@ -373,7 +373,6 @@ def ParseJobInfo(line):
             binpath=line.replace('absolutepathtobin=','')
         if "cache" in line:
             cache=True
-    inputline=line
 
     return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline
 
