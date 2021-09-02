@@ -1,7 +1,7 @@
 import os
 import sys
 import subprocess
-cpunodepath='nodes.txt'
+cpunodepath='nodeinfo.txt'
 
 def ReadCPUNodes(cpunodepath):
     cpunodes=[]
