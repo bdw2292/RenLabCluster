@@ -96,7 +96,7 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'---M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
-    cmdstr+=' '+'--parent-death'
+    cmdstr+=' '+'--single-shot'
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
     cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
     WriteToLogFile(queuelogger,'Calling: '+cmdstr)
