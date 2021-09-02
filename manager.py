@@ -99,7 +99,7 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
         cmdstr+=' '+'--memory '+ram
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
-    cmdstr+=' '+'---M '+projectname
+    cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
     cmdstr+=' '+'--single-shot'
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
