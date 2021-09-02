@@ -7,8 +7,9 @@
 * Choose unique projectname this instance of queue and work_queue_workers on cluster share
 
 * run the follwing command to listen and wait for input job files
+* Please choose port number default(6123) but if default already in use then will crash
 ```
-nohup python manager.py --projectname=projectname --password=password &
+nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
 * poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2

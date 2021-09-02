@@ -23,7 +23,7 @@ password=None
 queueloggerfile='queuelogger.log'
 errorloggerfile='errorlogger.log'
 
-opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password='])
+opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','portnumber='])
 for o, a in opts:
     if o in ("--bashrcpath"):
         envpath=a
@@ -37,6 +37,11 @@ for o, a in opts:
         password=a
     elif o in ("--projectname"):
         projectname=a
+    elif o in ("--portnumber"):
+        portnumber=int(a)
+
+
+
 
 def ReadNodeList(nodelistfilepath):
     nodelist=[]
