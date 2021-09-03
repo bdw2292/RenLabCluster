@@ -8,8 +8,10 @@
 
 * run the follwing command to listen and wait for input job files
 * Please choose port number default(6123) but if default already in use then will crash
+* Default workerdir is /scratch
+* Need to specify username to send jobs to /scratch/username
 ```
-nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber &
+nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
 * poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2

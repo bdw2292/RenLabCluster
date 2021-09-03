@@ -22,7 +22,7 @@ def KillSignal(cpunodes,killstring):
 
 
 cpunodes=ReadCPUNodes(cpunodepath)
-killstring='rm -r /scratch/bdw2292/'
-KillSignal(cpunodes,killstring)
+#killstring='rm -r /scratch/bdw2292/'
+#KillSignal(cpunodes,killstring)
 killstring='pkill -U bdw2292 '
 KillSignal(cpunodes,killstring)

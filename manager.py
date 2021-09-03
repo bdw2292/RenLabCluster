@@ -22,8 +22,10 @@ projectname=None
 password=None
 queueloggerfile='queuelogger.log'
 errorloggerfile='errorlogger.log'
+workerdir='/scratch'
+username=None
 
-opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','portnumber='])
+opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','portnumber=','username=','workerdir='])
 for o, a in opts:
     if o in ("--bashrcpath"):
         envpath=a
@@ -39,8 +41,10 @@ for o, a in opts:
         projectname=a
     elif o in ("--portnumber"):
         portnumber=int(a)
-
-
+    elif o in ("--username"):
+        username=a
+    elif o in ("--workerdir"):
+        workerdir=a
 
 
 def ReadNodeList(nodelistfilepath):
@@ -89,10 +93,12 @@ def ReadNodeList(nodelistfilepath):
     return nodelist,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,nodetocardcount
 
 
-def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount,queuelogger):
+def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount,queuelogger,workerdir,username):
+    fullworkdir=os.path.join(workerdir,username)
     idletimeout=100000000
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
-    cmdstr+=' -d all -o /tmp/worker.debug'
+    cmdstr+=' --workdir '+fullworkdir
+    cmdstr+=' -d all -o '+os.path.join(fullworkdir,'worker.debug')
     if proc!='UNK':
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
@@ -102,19 +108,21 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
     cmdstr+=' '+'--single-shot'
+    mkdirstring='mkdir '+fullworkdir+' ; '
+    cmdstr=mkdirstring+cmdstr
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
     cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
     WriteToLogFile(queuelogger,'Calling: '+cmdstr)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
-def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger):
+def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger,workerdir,username):
     for node in nodelist:
         hasgpu=nodetohasgpu[node]
         proc=nodetousableproc[node]
         ram=nodetousableram[node]
         disk=nodetousabledisk[node]
         cardcount=nodetocardcount[node]
-        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount,queuelogger)       
+        CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectname,password,cardcount,queuelogger,workerdir,username)       
 
 
 
@@ -417,7 +425,8 @@ if jobinfofilepath==None:
     #    raise ValueError('Please set password for manager, needed for security purposes. Otherwise cluster data visibile to public.')
     if projectname==None:
         raise ValueError('Please set projectname for manager, needed for multiple instances of managers and work_queue_workers running on cluster via different users.')
-
+    if username==None:
+        raise ValueError('Please specify username for working directory location')
     try:
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         queuelogger=SetupLogger('queuelogger',queueloggerfile,formatter)
@@ -437,7 +446,7 @@ if jobinfofilepath==None:
         queue.enable_monitoring('resourcesummary',watchdog=False)
         #queue.specify_password(password) CCTools has issues when this is specified
         WriteToLogFile(queuelogger,"listening on port {}".format(queue.port))
-        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger)
+        CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger,workerdir,username)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline,queuelogger,errorlogger)
         Monitor(queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime,taskidtoinputline,queuelogger,errorlogger)
