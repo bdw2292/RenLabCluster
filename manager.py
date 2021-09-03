@@ -232,9 +232,11 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
                 task.specify_memory(ram)    
                 temp['memory']=ram      
             if '_gpu' in cmdstr:
-                task.specify_gpus(1)          
+                task.specify_gpus(1)        
+                task.specify_cores(0)     
                 task.specify_tag("GPU")
                 temp['gpus']=1
+                temp['cores']=0
             else:
                 task.specify_tag("CPU")
                 temp['gpus']=1
