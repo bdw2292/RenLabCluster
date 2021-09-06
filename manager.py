@@ -8,6 +8,9 @@ import getopt
 import traceback
 import logging
 
+global queueloggerfile
+global errorloggerfile
+
 waittime=15
 portnumber=9123
 nodelistfilepath='nodeinfo.txt'
@@ -112,7 +115,7 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
     cmdstr=mkdirstring+cmdstr
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
     cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
-    WriteToLogFile(queuelogger,'Calling: '+cmdstr)
+    queuelogger=WriteToLogFile(queuelogger,'Calling: '+cmdstr)
     process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
 
 def CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger,workerdir,username):
@@ -138,7 +141,7 @@ def ReadJobInfoFromFile(jobinfo,filename,queuelogger):
             cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline=ParseJobInfo(line)
 
             if inputfilepaths==None:
-                WriteToLogFile(queuelogger,'WARNING inputfilepaths is not specified, will ignore input')
+                queuelogger=WriteToLogFile(queuelogger,'WARNING inputfilepaths is not specified, will ignore input')
                 continue
             array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline']
             for key in array:
@@ -191,7 +194,7 @@ def SplitScratch(string):
 
 
 def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline,queuelogger,errorlogger):
-    WriteToLogFile(queuelogger,"Submitting tasks...")
+    queuelogger=WriteToLogFile(queuelogger,"Submitting tasks...")
     jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline=ReadJobInfoFromDic(jobinfo)
     for job,ram in jobtoram.items():
         if job!=None:
@@ -262,7 +265,7 @@ def SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfi
             taskidtooutputfilepaths[taskid]=outputfilepaths
             taskidtoinputline[taskid]=inputline
             taskidtojob[taskid]=job
-            WriteToLogFile(queuelogger,'Task ID of '+taskid+' is assigned to job '+cmdstr)
+            queuelogger=WriteToLogFile(queuelogger,'Task ID of '+taskid+' is assigned to job '+cmdstr)
     return queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline
 
 def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime,taskidtoinputline,queuelogger,errorlogger):
@@ -289,30 +292,30 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime,t
             sorteddic={k: v for k, v in sorted(newfilestofilesizes.items(), key=lambda item: item[1],reverse=True)}  
             for filename in sorteddic.keys():
                 filepath=newfilestofilepaths[filename]
-                WriteToLogFile(queuelogger,'Moving file '+filename)
+                queuelogger=WriteToLogFile(queuelogger,'Moving file '+filename)
                 shutil.move(os.path.join(os.getcwd(),filename),filepath)
                 
             exectime = t.cmd_execution_time/1000000
             returnstatus=t.return_status
-            WriteToLogFile(queuelogger,'A job has finished Task %s!\n' % (str(taskid)))
+            queuelogger=WriteToLogFile(queuelogger,'A job has finished Task %s!\n' % (str(taskid)))
             if returnstatus!=0:
-                WriteToLogFile(queuelogger,'Error: Job did not terminate normally '+inputline)
-                WriteToLogFile(errorlogger,'Error: Job did not terminate normally '+inputline)
+                queuelogger=WriteToLogFile(queuelogger,'Error: Job did not terminate normally '+inputline)
+                errorlogger=WriteToLogFile(errorlogger,'Error: Job did not terminate normally '+inputline)
 
             try:
-                WriteToLogFile(queuelogger,'Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
-                WriteToLogFile(queuelogger,"Host = " + str(t.hostname) + '\n')
-                WriteToLogFile(queuelogger,"Execution time = " + str(exectime))
-                WriteToLogFile(queuelogger,"Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk))
-                WriteToLogFile(queuelogger,"Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk))
+                queuelogger=WriteToLogFile(queuelogger,'Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n')
+                queuelogger=WriteToLogFile(queuelogger,"Host = " + str(t.hostname) + '\n')
+                queuelogger=WriteToLogFile(queuelogger,"Execution time = " + str(exectime))
+                queuelogger=WriteToLogFile(queuelogger,"Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk))
+                queuelogger=WriteToLogFile(queuelogger,"Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk))
                 if t.limits_exceeded and t.limits_exceeded.cores > -1:
-                    WriteToLogFile(queuelogger,"Task exceeded its cores allocation.")
+                    queuelogger=WriteToLogFile(queuelogger,"Task exceeded its cores allocation.")
             except:
                 pass # sometimes task returns as None?? not very often though
         else:
-            WriteToLogFile(queuelogger,"Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" \
+            queuelogger=WriteToLogFile(queuelogger,"Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" \
                 % (q.stats.workers_init, q.stats.workers_idle, q.stats.workers_busy, q.stats.workers_joined, q.stats.workers_removed))
-            WriteToLogFile(queuelogger,"Tasks: %i running, %i waiting, %i dispatched, %i submitted, %i total complete\n" \
+            queuelogger=WriteToLogFile(queuelogger,"Tasks: %i running, %i waiting, %i dispatched, %i submitted, %i total complete\n" \
                 % (q.stats.tasks_running, q.stats.tasks_waiting, q.stats.tasks_dispatched, q.stats.tasks_submitted, q.stats.tasks_done))
 
             jobinfo,foundinputjobs=CheckForInputJobs(jobinfo,queuelogger)
@@ -327,7 +330,7 @@ def Monitor(q,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,waittime,t
 
 
 def WaitForInputJobs(queuelogger):
-    WriteToLogFile(queuelogger,'Waiting for input jobs')
+    queuelogger=WriteToLogFile(queuelogger,'Waiting for input jobs')
     jobinfo={}
     foundinputjobs=False
     while foundinputjobs==False:
@@ -411,12 +414,19 @@ def CheckForTaskCancellations(q,taskidtojob):
     return q
 
 def WriteToLogFile(logger,string):
-    logger.info(string)
+    try:
+        logger.info(string)
+    except:
+        logger.handlers[0].stream.close()
+        logger.removeHandler(logger.handlers[0]) 
+        logger= SetupLogger('queuelogger',queueloggerfile)   
+    return logger
 
-def SetupLogger(name, log_file,formatter, level=logging.INFO):
+def SetupLogger(name, log_file, level=logging.INFO):
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    logger = logging.getLogger(name)
     handler = logging.FileHandler(log_file)        
     handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(handler)
     return logger
@@ -430,9 +440,8 @@ if jobinfofilepath==None:
     if username==None:
         raise ValueError('Please specify username for working directory location')
     try:
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        queuelogger=SetupLogger('queuelogger',queueloggerfile,formatter)
-        errorlogger=SetupLogger('errorlogger',errorloggerfile,formatter)
+        queuelogger=SetupLogger('queuelogger',queueloggerfile)
+        errorlogger=SetupLogger('errorlogger',errorloggerfile)
         
         #logging.basicConfig(filename=loggerfile, filemode='w', format='%(name)s - %(levelname)s - %(message)s',level=logging.INFO)
         if os.path.isfile(pidfile):
@@ -447,7 +456,7 @@ if jobinfofilepath==None:
         queue = wq.WorkQueue(portnumber,name=projectname,debug_log = "output.log",stats_log = "stats.log",transactions_log = "transactions.log")
         queue.enable_monitoring('resourcesummary',watchdog=False)
         #queue.specify_password(password) CCTools has issues when this is specified
-        WriteToLogFile(queuelogger,"listening on port {}".format(queue.port))
+        queuelogger=WriteToLogFile(queuelogger,"listening on port {}".format(queue.port))
         CallWorkers(nodelist,envpath,masterhost,portnumber,nodetohasgpu,nodetousableproc,nodetousableram,nodetousabledisk,projectname,password,nodetocardcount,queuelogger,workerdir,username)
         # Submit several tasks for execution:
         queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline=SubmitToQueue(jobinfo,queue,taskidtojob,cattomaxresourcedic,taskidtooutputfilepaths,taskidtoinputline,queuelogger,errorlogger)
@@ -456,7 +465,7 @@ if jobinfofilepath==None:
     except:
         traceback.print_exc(file=sys.stdout)
         text = str(traceback.format_exc())
-        WriteToLogFile(queuelogger,str(text))
+        queuelogger=WriteToLogFile(queuelogger,str(text))
         raise ValueError('Program Crash')
 
     finally:
