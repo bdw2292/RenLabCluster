@@ -14,7 +14,7 @@
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
 
 ```
-nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username --bashrcpath &
+nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username --bashrcpath=path_to_bashrc &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
 * poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2
