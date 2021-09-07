@@ -10,8 +10,11 @@
 * Please choose port number default(6123) but if default already in use then will crash
 * Default workerdir is /scratch
 * Need to specify username to send jobs to /scratch/username
+* bashrcpath is optional argument, if not given there is a default bashrc file 
+* Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
+
 ```
-nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username &
+nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username --bashrcpath &
 ```
 * Then after preparation of input job script is complete (see below), run the following command 
 * poltype will prepare the inputs for you with keyword in inputfile (externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2
@@ -24,8 +27,6 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * output.log, queuelogger.log for more information
 * work_queue_status -M projectname
 * See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
-* bashrcpath is optional argument, if not given there is a default bashrc file 
-* Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
 
 
 ## Job Info File Path
