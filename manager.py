@@ -148,12 +148,12 @@ def ReadJobInfoFromFile(jobinfo,filename,queuelogger):
             split=line.split()
             if len(split)==0:
                 continue
-            cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline=ParseJobInfo(line)
+            cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk=ParseJobInfo(line)
 
             if inputfilepaths==None:
                 queuelogger=WriteToLogFile(queuelogger,'WARNING inputfilepaths is not specified, will ignore input')
                 continue
-            array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline']
+            array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline','disk']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
@@ -166,6 +166,8 @@ def ReadJobInfoFromFile(jobinfo,filename,queuelogger):
             jobinfo['scratchpath'][job]=scratchpath
             jobinfo['cache'][job]=cache
             jobinfo['inputline'][job]=inputline
+            jobinfo['disk'][job]=disk
+
 
     return jobinfo
 
@@ -178,7 +180,9 @@ def ReadJobInfoFromDic(jobinfo):
     jobtooutputfilepaths=jobinfo['outputfilepaths']
     jobtocache=jobinfo['cache']
     jobtoinputline=jobinfo['inputline']
-    return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline
+    jobtodisk=jobinfo['disk']
+
+    return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -205,7 +209,7 @@ def SplitScratch(string):
 
 def SubmitToQueue(jobinfo,queuelist,taskidtojoblist,cattomaxresourcedic,taskidtooutputfilepathslist,taskidtoinputlinelist,queuelogger,errorlogger):
     queuelogger=WriteToLogFile(queuelogger,"Submitting tasks...")
-    jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline=ReadJobInfoFromDic(jobinfo)
+    jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk=ReadJobInfoFromDic(jobinfo)
     for job,ram in jobtoram.items():
         if job!=None:
             numproc=jobtonumproc[job]
@@ -216,6 +220,7 @@ def SubmitToQueue(jobinfo,queuelist,taskidtojoblist,cattomaxresourcedic,taskidto
             cacheval=jobtocache[job]
             cmdstr=job[0]
             inputline=jobtoinputline[job]
+            disk=jobtodisk[job]
             if scratchpath!=None:
                 head,tail=os.path.split(scratchpath)
                 string1='mkdir '+head+' ; '
@@ -243,7 +248,11 @@ def SubmitToQueue(jobinfo,queuelist,taskidtojoblist,cattomaxresourcedic,taskidto
             if ram!=None:
                 ram=ConvertMemoryToMBValue(ram)           
                 task.specify_memory(ram)    
-                temp['memory']=ram     
+                temp['memory']=ram 
+            if disk!=None:
+                disk=ConvertMemoryToMBValue(disk)           
+                task.specify_disk(disk)    
+                temp['disk']=disk 
             gpujob=False
             if '_gpu' in cmdstr:
                 gpujob=True
@@ -418,6 +427,7 @@ def ParseJobInfo(line):
     scratchpath=None
     cache=False
     inputline=line
+    disk=None
     for line in linesplit:
         if "job=" in line:
             job=line.replace('job=','')
@@ -437,8 +447,11 @@ def ParseJobInfo(line):
             binpath=line.replace('absolutepathtobin=','')
         if "cache" in line:
             cache=True
+        if "disk" in line:
+            disk=line.replace('disk=','')
 
-    return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline
+
+    return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk
 
 def CheckForTaskCancellations(q,taskidtojob):
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'

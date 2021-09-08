@@ -42,7 +42,7 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * ram is optional input to specify how much ram is needed (in GB,--ram=100GB)
 * numproc is optional input to specify number of processors needed
 * For CPU job, specify as much info as possilbe (ram,scratch,numproc), the daemon uses this information to assign multiple jobs per node.
-* If no resources are specified, or all resources are specified to be 0, then a single task from the category will consume a whole worker. 
+* If no resources are specified, or all resources are specified to be 0, then a single task from the category will consume a whole worker. Specify as much information as possible to be most efficient, numproc, disk, ram 
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
 * inputfilepaths are needed for CCtools to copy correct files to worker and run command
@@ -51,8 +51,9 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * For QM jobs, scratchpath is needed
 * Make sure input and output filenames are unique (only if submitting many jobs to queue), since manager wil move jobs from worker back to manager directory (dont want to overwrite filenames that are same) and then manager will move to path in outputfilepath
 ```
---job=command --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfilepaths=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs 
---job=command --inputfilepaths=file1path,file2path --outputfilepaths=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs 
+--job=command --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfilepaths=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk 
+
+--job=command --inputfilepaths=file1path,file2path --outputfilepaths=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk 
 ```
 * nohup.out will list all of the Task IDs associated with command strings
 * CPU tasks are tagged with CPU and GPU tasks are tagged with GPU
