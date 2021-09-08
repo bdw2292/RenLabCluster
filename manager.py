@@ -316,7 +316,7 @@ def WriteOutTaskStateLoggingInfo(taskidtoinputlinelist,qlist,queuelogger):
 def WriteOutFile(array,theloggerfile,string):
     temp=open(theloggerfile,'w')
     for line in array:
-        temp.write(line+' '+string+'\n')
+        temp.write(line.replace('\n','')+' '+string+'\n')
     temp.close()
 
 
