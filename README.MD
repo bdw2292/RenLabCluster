@@ -3,15 +3,17 @@
 ## Usage
 * Go to NOVA
 * Activate conda envioronment for CCTools before calling manager
+* Go to directory with manager.py
 * Choose unique password that queue and work_queue_workers on cluster share. (NOTE: Currently setting password on queue and work_queue_worker seems to cause tasks to wait in queue and not get submitted). Dont need to set password currently.
 * Choose unique projectname this instance of queue and work_queue_workers on cluster share
 
 * run the follwing command to listen and wait for input job files
-* Please choose port number default(6123) but if default already in use then will crash
+* Please choose port number for queue default (6123) but if default already in use then will crash
 * Default workerdir is /scratch
 * Need to specify username to send jobs to /scratch/username
 * bashrcpath is optional argument, if not given there is a default bashrc file 
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
+* Variable --backupmanager can be used to have manager run in backupmode, this will automatically act as manager if first manager dies (if the daemon.pid file disappears) and then read in the current waiting.log as input for queue. 
 
 ```
 nohup python manager.py --projectname=projectname --password=password --portnumber=portnumber --workerdir=/scratch --username=username --bashrcpath=path_to_bashrc &
@@ -24,7 +26,13 @@ python manager.py --jobinfofilepath=jobinfo.txt
 ```
 * Its best practice to make sure the filename for jobinfofilepath is unique, this file is copied to directory of daemon and then read in and deleted. So if multiple calls to daemon with same filename its possible one gets overwritten.
 * The port number is set by the controlhost listening script (manager.py)
-* output.log, queuelogger.log for more information
+* See queuelogger.log for TaskID assignment, completetion and work_queue_worker submission
+* See errorlogger.log for failed jobs
+* See completed.log for jobs completed
+* See waiting.log for jobs still waiting in queue
+* See running.log for jobs still running
+* See output.log for more details on communication between workers and queue
+* See worker.debug under workerdir/username on each node for specific information about worker node
 * work_queue_status -M projectname
 * See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
 
