@@ -109,8 +109,9 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * To generate nodeinfo.txt file run the following
 
 ```
-python pingnodeswriteresources.py
+nohup python pingnodeswriteresources.py &
 ```
+* This continously runs every 5 minutes, then pings each node for information like resources (including if GPU is present). Need to do this so in case GPU card dies, then manager.py will not send jobs to nodes it thinks has GPU (like previoiusly card working but now its not...)
 * The columns within nodeinfo.txt are as follows       
 ```
 node HASGPU Processors RAM Scratch ConsumptionRatio

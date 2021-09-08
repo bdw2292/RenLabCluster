@@ -253,9 +253,7 @@ def SubmitToQueue(jobinfo,queuelist,taskidtojoblist,cattomaxresourcedic,taskidto
                 disk=ConvertMemoryToMBValue(disk)           
                 task.specify_disk(disk)    
                 temp['disk']=disk 
-            gpujob=False
             if '_gpu' in cmdstr:
-                gpujob=True
                 task.specify_gpus(1)        
                 task.specify_tag("GPU")
                 temp['gpus']=1

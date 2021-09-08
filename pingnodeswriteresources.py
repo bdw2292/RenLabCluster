@@ -3,6 +3,7 @@ import sys
 import subprocess
 from tqdm import tqdm
 import re
+import time
 
 def ReadNodeList(nodelistfilepath):
     nodelist=[]
@@ -17,7 +18,8 @@ def ReadNodeList(nodelistfilepath):
             linesplit=newline.split()
             node=linesplit[0]
             node=node.replace('#','')
-            nodelist.append(node)
+            if '#' not in line:
+                nodelist.append(node)
 
         temp.close()
     return nodelist
@@ -63,11 +65,14 @@ def PingNodesAndDetermineNodeInfo(nodelist):
 def CheckGPUStats(node):
     cmdstr='nvidia-smi'
     job='ssh %s "%s"'%(node,cmdstr)
-    p = subprocess.Popen(job, stdout=subprocess.PIPE,shell=True)
-    nodedead,output=CheckForDeadNode(p,node)
+    try:
+        output = subprocess.check_output(job, stderr=subprocess.STDOUT,shell=True, timeout=10)
+        output=ConvertOutput(output)
+        nodedead=False
+    except:
+        nodedead=True
     cudaversion=None
     cardcount=0
-    nodedead=False
     cardtype=None
     if nodedead==False:
         lines=output.split('\n')
@@ -80,8 +85,11 @@ def CheckGPUStats(node):
 
     cmdstr='nvidia-smi -q'
     job='ssh %s "%s"'%(node,cmdstr)
-    p = subprocess.Popen(job, stdout=subprocess.PIPE,shell=True)
-    nodedead,output=CheckForDeadNode(p,node)
+    try:
+        output = subprocess.check_output(job,stderr=subprocess.STDOUT, shell=True,timeout=10)
+        output=ConvertOutput(output)
+    except:
+        nodedead=True
     if nodedead==False:
         lines=output.split('\n')
         for line in lines:
@@ -93,15 +101,6 @@ def CheckGPUStats(node):
 
     return cudaversion,cardcount,cardtype
 
-def CheckForDeadNode(process,node):
-    nodedead=False
-    output, err = process.communicate()
-    output=ConvertOutput(output)    
-    if process.returncode != 0:
-        if err!=None:
-            err=ConvertOutput(err)
-            nodedead=True
-    return nodedead,output
 
 def ConvertOutput(output):
     if output!=None:
@@ -123,11 +122,10 @@ def CheckTotalCPU(node):
     return totalproc
 
 def CheckOutputFromExternalNode(node,cmdstr):
-    nodetimeout=10
     output=True
     job='ssh %s "%s"'%(node,cmdstr)
     try: # if it has output that means this process is running
-        output=subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True,timeout=nodetimeout)
+        output=subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True,timeout=2.5)
         output=ConvertOutput(output)
          
     except: #if it fails, that means no process with the program is running or node is dead/unreachable
@@ -214,8 +212,12 @@ def CheckCurrentCPUUsage(node):
     filepath=os.path.join(os.getcwd(),'topoutput.txt')
     cmdstr='top -b -n 1 > '+filepath   
     job='ssh %s "%s"'%(node,cmdstr)
-    p = subprocess.Popen(job, stdout=subprocess.PIPE,shell=True)
-    nodedead,output=CheckForDeadNode(p,node)
+    try:
+        output = subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True, timeout=10)
+        output=ConvertOutput(output)
+        nodedead=False
+    except:
+        nodedead=True
     if nodedead==False:
         if os.path.isfile(filepath):
             temp=open(filepath,'r')
@@ -257,16 +259,19 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
             value=float(cardtype)
             if value<mincardtype:
                 cardcount='0'
+                node='#'+node # temp until --gpus 0 fixed
         if cardtype==None:
             cardtype='UNK'
         string=node+' '+gpustring+' '+cardtype+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
         temp.write(string)
     temp.close()
 
-mincardtype=1000
-nodelistfilepath='nodes.txt'
-consumptionratio='.8'
-nodelist=ReadNodeList(nodelistfilepath)
-gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype=PingNodesAndDetermineNodeInfo(nodelist)
-filename='nodeinfo.txt'
-WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype)
+while True:
+    mincardtype=1000
+    nodelistfilepath='nodes.txt'
+    consumptionratio='.8'
+    nodelist=ReadNodeList(nodelistfilepath)
+    gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype=PingNodesAndDetermineNodeInfo(nodelist)
+    filename='nodeinfo.txt'
+    WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype)
+    time.sleep(60*5)

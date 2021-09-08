@@ -1,7 +1,7 @@
 node35
 node36
-#node37
-#node38
+node37
+node38
 node40  
 node42 
 node43 
@@ -58,7 +58,7 @@ node99
 node100
 node101
 node142
-#node144
+node144
 node193
 node194
 node195
@@ -68,7 +68,7 @@ node210
 node211
 node212
 node215
-node206 CPUONLY
+#node206 CPUONLY
 bme-black CPUONLY
 bme-dna CPUONLY
 bme-earth CPUONLY
