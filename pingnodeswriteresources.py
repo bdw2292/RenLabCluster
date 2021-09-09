@@ -4,6 +4,30 @@ import subprocess
 from tqdm import tqdm
 import re
 import time
+import getopt
+
+mincardtype=1000
+nodelistfilepath='nodes.txt'
+coreconsumptionratio='.8'
+ramconsumptionratio='.8'
+diskconsumptionratio='.8'
+bashrcpath='/home/bdw2292/.allpurpose.bashrc'
+filename='nodeinfo.txt'
+
+opts, xargs = getopt.getopt(sys.argv[1:],'',['diskconsumptionratio=',"bashrcpath=",'coreconsumptionratio=','mincardtype=','ramconsumptionratio='])
+for o, a in opts:
+    if o in ("--bashrcpath"):
+        bashrcpath=a
+    elif o in ("--coreconsumptionratio"):
+        coreconsumptionratio=a
+    elif o in ("--ramconsumptionratio"):
+        ramconsumptionratio=a
+    elif o in ("--diskconsumptionratio"):
+        diskconsumptionratio=a
+    elif o in ("--mincardtype"):
+        mincardtype=int(a)
+ 
+
 
 def ReadNodeList(nodelistfilepath):
     nodelist=[]
@@ -18,27 +42,24 @@ def ReadNodeList(nodelistfilepath):
             linesplit=newline.split()
             node=linesplit[0]
             node=node.replace('#','')
-            if '#' not in line:
-                nodelist.append(node)
+            nodelist.append(node)
 
         temp.close()
     return nodelist
 
 
-def PingNodesAndDetermineNodeInfo(nodelist):
+def PingNodesAndDetermineNodeInfo(nodelist,bashrcpath):
     gpunodes=[] 
     nodetototalram={}
     nodetototalcpu={}
     nodetototalscratch={}
     nodetocardcount={}
     nodetocardtype={}
+    nodefailanalyze=[]
     for nodeidx in tqdm(range(len(nodelist)),desc='Pinging nodes'):
         node=nodelist[nodeidx]
-        cudaversion,cardcount,cardtype=CheckGPUStats(node)
+        cudaversion,cardcount,cardtype,failanalyze=CheckGPUStats(node,bashrcpath)
         nproc=CheckTotalCPU(node)
-        currentproc=CheckCurrentCPUUsage(node)
-        if type(nproc)==int and type(currentproc)==int:
-            nproc=nproc-currentproc
 
         if nproc==0:
             nproc='UNK'
@@ -56,17 +77,20 @@ def PingNodesAndDetermineNodeInfo(nodelist):
             gpunodes.append(node)
             nodetocardcount[node]=cardcount
             nodetocardtype[node]=cardtype
+            if failanalyze==True:
+                nodefailanalyze.append(node)
         else:
             nodetocardcount[node]=0
             nodetocardtype[node]='UNK'
 
-    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype
+    return gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype,nodefailanalyze
 
-def CheckGPUStats(node):
+def CheckGPUStats(node,bashrcpath):
+    failanalyze=False
     cmdstr='nvidia-smi'
     job='ssh %s "%s"'%(node,cmdstr)
     try:
-        output = subprocess.check_output(job, stderr=subprocess.STDOUT,shell=True, timeout=10)
+        output = subprocess.check_output(job, stderr=subprocess.STDOUT,shell=True, timeout=2.5)
         output=ConvertOutput(output)
         nodedead=False
     except:
@@ -86,7 +110,7 @@ def CheckGPUStats(node):
     cmdstr='nvidia-smi -q'
     job='ssh %s "%s"'%(node,cmdstr)
     try:
-        output = subprocess.check_output(job,stderr=subprocess.STDOUT, shell=True,timeout=10)
+        output = subprocess.check_output(job,stderr=subprocess.STDOUT, shell=True,timeout=2.5)
         output=ConvertOutput(output)
     except:
         nodedead=True
@@ -95,11 +119,24 @@ def CheckGPUStats(node):
         for line in lines:
             if "Product Name" in line:
                 linesplit=line.split()
+                founddigit=False
                 for e in linesplit:
                     if e.isdigit():
+                        founddigit=True
                         cardtype=e
+                if founddigit==False:
+                    cardtype=linesplit[-1]
+        filepath=os.path.abspath(os.path.split(__file__)[0])
+        cmdstr='analyze_gpu'+' '+os.path.join(os.path.join(filepath,'VersionFiles/'),'water.xyz')+' '+'-k'+' '+os.path.join(os.path.join(filepath,'VersionFiles/'),'water.key')+' '+'e'
+        job = 'ssh %s "source %s ;%s"' %(str(node),bashrcpath,cmdstr)
+        try:
+            output = subprocess.check_output(job,stderr=subprocess.STDOUT, shell=True,timeout=10)
+            output=ConvertOutput(output)
+        except:
+            failanalyze=True
 
-    return cudaversion,cardcount,cardtype
+
+    return cudaversion,cardcount,cardtype,failanalyze
 
 
 def ConvertOutput(output):
@@ -145,14 +182,8 @@ def CheckRAM(node):
                 ram=float(linesplit[3])
                 total=float(linesplit[1])
                 break
-            elif 'buffers/cache' in line:
-                ram=float(linesplit[3])
-                used=float(linesplit[2])
-                total=ram+used
-                break
-        ram=str(ram)+'GB'
+        ram=str(total)+'GB'
         ram=ConvertMemoryToMBValue(ram)
-
     return ram
 
 def ConvertMemoryToMBValue(scratch):
@@ -207,40 +238,10 @@ def SplitScratch(string):
     diskunit=string[index]
     return space,diskunit
 
-def CheckCurrentCPUUsage(node):
-    currentproc=False
-    filepath=os.path.join(os.getcwd(),'topoutput.txt')
-    cmdstr='top -b -n 1 > '+filepath   
-    job='ssh %s "%s"'%(node,cmdstr)
-    try:
-        output = subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True, timeout=10)
-        output=ConvertOutput(output)
-        nodedead=False
-    except:
-        nodedead=True
-    if nodedead==False:
-        if os.path.isfile(filepath):
-            temp=open(filepath,'r')
-            results=temp.readlines()
-            temp.close()
-            procsum=0
-            for line in results:
-                linesplit=line.split()
-                if len(linesplit)==12:
-                   proc=linesplit[8]
-                   if proc.isnumeric():
-                       proc=float(proc)/100
-                       procsum+=proc
-            currentproc=int(procsum)
-            if os.path.isfile(filepath):
-                os.remove(filepath)
-    return currentproc
 
-
-
-def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype):
+def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,coreconsumptionratio,ramconsumptionratio,diskconsumptionratio,nodetocardcount,nodetocardtype,mincardtype,nodefailanalyze):
     temp=open(filename,'w')
-    columns='#node'+' '+'HASGPU'+' '+'CARDTYPE'+' '+'GPUCARDS'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'ConsumptionRatio'+'\n'
+    columns='#node'+' '+'HASGPU'+' '+'CARDTYPE'+' '+'GPUCARDS'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'CPUConsumptionRatio'+' '+'RAMConsumptionRatio'+' '+'DiskConsumptionRatio'+' '+'\n'
     temp.write(columns)
     for node in nodelist:
         hasgpu=False
@@ -256,22 +257,21 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
         cardcount=str(nodetocardcount[node])
         cardtype=nodetocardtype[node]
         if cardtype!='UNK' and cardtype!=None:
-            value=float(cardtype)
-            if value<mincardtype:
-                cardcount='0'
+            if cardtype.isdigit()==False:
                 node='#'+node # temp until --gpus 0 fixed
+            else:
+                value=float(cardtype)
+                if value<mincardtype:
+                    cardcount='0'
+                    node='#'+node # temp until --gpus 0 fixed
+        if node in nodefailanalyze:
+            node='#'+node # do this for now until we can set --gpus 0
         if cardtype==None:
             cardtype='UNK'
-        string=node+' '+gpustring+' '+cardtype+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+consumptionratio+'\n'
+        string=node+' '+gpustring+' '+cardtype+' '+cardcount+' '+nproc+' '+ram+' '+scratch+' '+coreconsumptionratio+' '+ramconsumptionratio+' '+diskconsumptionratio+'\n'
         temp.write(string)
     temp.close()
 
-while True:
-    mincardtype=1000
-    nodelistfilepath='nodes.txt'
-    consumptionratio='.8'
-    nodelist=ReadNodeList(nodelistfilepath)
-    gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype=PingNodesAndDetermineNodeInfo(nodelist)
-    filename='nodeinfo.txt'
-    WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,consumptionratio,nodetocardcount,nodetocardtype,mincardtype)
-    time.sleep(60*5)
+nodelist=ReadNodeList(nodelistfilepath)
+gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodetocardcount,nodetocardtype,nodefailanalyze=PingNodesAndDetermineNodeInfo(nodelist,bashrcpath)
+WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,coreconsumptionratio,ramconsumptionratio,diskconsumptionratio,nodetocardcount,nodetocardtype,mincardtype,nodefailanalyze)

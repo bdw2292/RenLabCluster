@@ -85,17 +85,19 @@ def ReadNodeList(nodelistfilepath):
                 proc=linesplit[4]
                 ram=linesplit[5]
                 scratch=linesplit[6]
-                consumratio=float(linesplit[7])
+                coreconsumratio=float(linesplit[7])
+                ramconsumratio=float(linesplit[8])
+                diskconsumratio=float(linesplit[9])
                 if hasgpu=='GPU':
                     nodetohasgpu[node]=True
                 else:
                     nodetohasgpu[node]=False
                 if proc!='UNK':
-                    proc=str(int(int(proc)*consumratio))
+                    proc=str(int(int(proc)*coreconsumratio))
                 if ram!='UNK':
-                    ram=str(int(int(ram)*consumratio))
+                    ram=str(int(int(ram)*ramconsumratio))
                 if scratch!='UNK':
-                    scratch=str(int(int(scratch)*consumratio))
+                    scratch=str(int(int(scratch)*diskconsumratio))
                 nodetousableram[node]=ram
                 nodetousabledisk[node]=scratch
                 nodetousableproc[node]=proc    
@@ -117,7 +119,8 @@ def CallWorker(node,envpath,masterhost,portnumber,hasgpu,proc,ram,disk,projectna
         cmdstr+=' '+'--cores '+proc
     if ram!='UNK':
         cmdstr+=' '+'--memory '+ram
-    cmdstr+=' '+'--gpus '+str(cardcount)
+    if cardcount!=0 and cardcount!='0': # current cctools bug
+        cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password CCtools has issues when this is specified
@@ -350,7 +353,7 @@ def Monitor(qlist,taskidtojoblist,cattomaxresourcedic,taskidtooutputfilepathslis
                     
                 exectime = t.cmd_execution_time/1000000
                 returnstatus=t.return_status
-                queuelogger=WriteToLogFile(queuelogger,'A job has finished Task %s!\n' % (str(taskid)))
+                queuelogger=WriteToLogFile(queuelogger,'A job has finished Task %s, return status= %s!\n' % (str(taskid),str(returnstatus)))
                 if returnstatus!=0:
                     queuelogger=WriteToLogFile(queuelogger,'Error: Job did not terminate normally '+inputline)
                     errorlogger=WriteToLogFile(errorlogger,'Error: Job did not terminate normally '+inputline)

@@ -109,15 +109,15 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * To generate nodeinfo.txt file run the following
 
 ```
-nohup python pingnodeswriteresources.py &
+python pingnodeswriteresources.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.8 --ramconsumptionratio=.8 --diskconsumptionratio=.8 --mincardtype=1000 
 ```
-* This continously runs every 5 minutes, then pings each node for information like resources (including if GPU is present). Need to do this so in case GPU card dies, then manager.py will not send jobs to nodes it thinks has GPU (like previoiusly card working but now its not...)
 * The columns within nodeinfo.txt are as follows       
 ```
-node HASGPU Processors RAM Scratch ConsumptionRatio
+node HASGPU CARDTYPE CARDCOUNT Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRatio
 ```
-* The resources listed are not total possible but current available as of the ping, so its good to run this before running manager.py, so has to add more safe restrictions to avoid potentially consuming too much resources
-* Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the current available resource (by time running program to check)*consumptionratio for each resource. Then worker will always report static values to manager for job distribution.
+* The resources listed are total possible,
+* To be safe  its good to run this before running manager.py, GPU cards could die or changes to cluster hardware made
+* Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the total available resource *consumptionratio for each resource. Then worker will always report static values to manager for job distribution.
 
 * include a \# in the line to ignore hostnames in front (in nodeinfo.txt)
 * If UNK is in column, this indicates program could not ping host for information and this will not be used for restricting the work_queue_worker on that host
