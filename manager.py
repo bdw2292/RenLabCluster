@@ -621,10 +621,6 @@ def DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetous
     usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=AddUnchangedResourcesOnSameNodeAsChangedResource(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount)
     if changeproc==True or changeram==True or changedisk==True or changecardcount==True:
         detectresourceallocationchange=True  
-        print('usernametonodetodifferentusableproc',usernametonodetodifferentusableproc)
-        print('usernametonodetodifferentusableram',usernametonodetodifferentusableram)
-        print('usernametonodetodifferentusabledisk',usernametonodetodifferentusabledisk)
-        print('usernametonodetodifferentcardcount',usernametonodetodifferentcardcount)
     if detectresourceallocationchange==True:
         SendEmails(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
 
@@ -975,9 +971,8 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     usernametoqueuenametoportnumber={}
     usernametoqueuenametologgers={}
     usernametoqueuenametopassword={}
-    if username==None:
-        usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
-    else:
+    usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
+    if username!=None:
         usernames=[username]
     portnumber=startingportnumber
     usernametoqueuenametotaskidtooutputfilepathslist={}
