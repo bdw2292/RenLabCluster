@@ -11,7 +11,9 @@ def ReadCPUNodes(cpunodepath):
     for line in results:
         if '#' not in line:
             linesplit=line.split()
-            cpunodes.append(linesplit[0])
+            card=linesplit[0]
+            node=card[:-2]
+            cpunodes.append(node)
     return cpunodes
 
 
@@ -22,7 +24,5 @@ def KillSignal(cpunodes,killstring):
 
 
 cpunodes=ReadCPUNodes(cpunodepath)
-#killstring='rm -r /scratch/bdw2292/'
-#KillSignal(cpunodes,killstring)
 killstring='pkill -U bdw2292 '
 KillSignal(cpunodes,killstring)
