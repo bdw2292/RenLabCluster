@@ -336,18 +336,30 @@ def ReadJobInfoFromDic(jobinfo):
     jobtousername={}
     jobtogpucard={}
     jobtogpujob={}
-    jobtoram=jobinfo['ram']
-    jobtonumproc=jobinfo['numproc']
-    jobtoinputfilepaths=jobinfo['inputfilepaths']
-    jobtobinpath=jobinfo['binpath']
-    jobtoscratchpath=jobinfo['scratchpath']
-    jobtooutputfilepaths=jobinfo['outputfilepaths']
-    jobtocache=jobinfo['cache']
-    jobtoinputline=jobinfo['inputline']
-    jobtodisk=jobinfo['disk']
-    jobtousername=jobinfo['username']
-    jobtogpucard=jobinfo['gpucard']
-    jobtogpujob=jobinfo['gpujob']
+    if 'ram' in jobinfo.keys():
+        jobtoram=jobinfo['ram']
+    if 'numproc' in jobinfo.keys():
+        jobtonumproc=jobinfo['numproc']
+    if 'inputfilepaths' in jobinfo.keys():
+        jobtoinputfilepaths=jobinfo['inputfilepaths']
+    if 'binpath' in jobinfo.keys():
+        jobtobinpath=jobinfo['binpath']
+    if 'scratchpath' in jobinfo.keys():
+        jobtoscratchpath=jobinfo['scratchpath']
+    if 'outputfilepaths' in jobinfo.keys():
+        jobtooutputfilepaths=jobinfo['outputfilepaths']
+    if 'cache' in jobinfo.keys():
+        jobtocache=jobinfo['cache']
+    if 'inputline' in jobinfo.keys():
+        jobtoinputline=jobinfo['inputline']
+    if 'disk' in jobinfo.keys():
+        jobtodisk=jobinfo['disk']
+    if 'username' in jobinfo.keys():
+        jobtousername=jobinfo['username']
+    if 'gpucard' in jobinfo.keys():
+        jobtogpucard=jobinfo['gpucard']
+    if 'gpujob' in jobinfo.keys():
+        jobtogpujob=jobinfo['gpujob']
 
 
     return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob
