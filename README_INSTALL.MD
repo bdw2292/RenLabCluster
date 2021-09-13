@@ -48,7 +48,7 @@ else
        declare -i VALUE=102
 
      elif [ $firstchar == 3 ]; then
-       declare -i VALUE=102
+       declare -i VALUE=112
 
      else
        declare -i VALUE=0
