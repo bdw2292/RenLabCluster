@@ -324,6 +324,18 @@ def ReadJobInfoFromFile(jobinfo,filename):
     return jobinfo
 
 def ReadJobInfoFromDic(jobinfo):
+    jobtoram={}
+    jobtonumproc={}
+    jobtoinputfilepaths={}
+    jobtobinpath={}
+    jobtoscratchpath={}
+    jobtooutputfilepaths={}
+    jobtocache={}
+    jobtoinputline={}
+    jobtodisk={}
+    jobtousername={}
+    jobtogpucard={}
+    jobtogpujob={}
     jobtoram=jobinfo['ram']
     jobtonumproc=jobinfo['numproc']
     jobtoinputfilepaths=jobinfo['inputfilepaths']
