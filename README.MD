@@ -149,3 +149,6 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 * If the current manager has a backup mode manager running, first kill the main manager (via PID in daemon.pid), then remove the daemon.pid file. This will cause the backup manager to become the new manager. Then you will want to run the updated mangaer.py in backupmode. After that, again kill the main manager (which still running under old manager.py) and delete the daemon.pid. This will cause the updated manager.py that was running in backupmode to become the primary manager. Then you can submit another manager in backup mode.
 
 * If the current manager does not have a backup manager running, submit the updated manager.py in backup mode. Then kill the primary manager (PID in daemon.pid), and remove the daemon.pid file. This will cause the updated manager in backup mode to become the primary manager. Then add another manager in backup mode.
+
+## Todo
+* Parse /opt/quota.sun and /opt/quota.nova.home, then report if quota is getting close to filling (send emails and log information)
