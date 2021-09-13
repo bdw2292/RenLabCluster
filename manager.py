@@ -81,6 +81,7 @@ def ReadNodeList(nodelistfilepath,usernames):
     nodetolowproc={}
     nodetoallowedcpuusernames={}
     nodetoallowedgpuusernames={}
+    nodetohasgpu={}
 
     usernametonodetousableram={}
     usernametonodetousabledisk={}
@@ -111,6 +112,10 @@ def ReadNodeList(nodelistfilepath,usernames):
                 if node not in nodelist:
                     nodelist.append(node)
                 hasgpu=linesplit[1]
+                if hasgpu=="GPU":
+                    nodetohasgpu[node]=True
+                else:
+                    nodetohasgpu[node]=False
                 proc=linesplit[3]
                 ram=linesplit[4]
                 scratch=linesplit[5]
@@ -172,7 +177,6 @@ def ReadNodeList(nodelistfilepath,usernames):
                 else:
                     if gpuusername not in cardtoallowedgpuusernames[card]:
                         cardtoallowedgpuusernames[card].append(gpuusername)
-
     for node,cards in nodetocards.items():
         usernametocardcount={}
         usableram=nodetousableram[node]
@@ -183,6 +187,7 @@ def ReadNodeList(nodelistfilepath,usernames):
         lowproc=nodetolowproc[node]
         allallowedcpuusernames=[]
         allallowedgpuusernames=[]
+        hasgpu=nodetohasgpu[node]
         for card in cards:
             allowedcpuusernames=cardtoallowedcpuusernames[card]
             for cpuusername in allowedcpuusernames:
@@ -194,7 +199,8 @@ def ReadNodeList(nodelistfilepath,usernames):
                     usernametocardcount[gpuusername]=0
                 if gpuusername not in allallowedgpuusernames:
                     allallowedgpuusernames.append(gpuusername)
-                usernametocardcount[gpuusername]+=1
+                if hasgpu==True:
+                    usernametocardcount[gpuusername]+=1
         nodetoallowedgpuusernames[node]=allallowedgpuusernames
         nodetoallowedcpuusernames[node]=allallowedcpuusernames
 
