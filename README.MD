@@ -5,7 +5,7 @@
 * Activate conda envioronment for CCTools before calling manager
 * Go to directory with manager.py
 * Each user will get their own queue of workers
-* Choose unique password that queue and work_queue_workers on cluster share. User specific queues will get password of username_password 
+* Choose unique password that queue and work_queue_workers on cluster share. User specific queues will get password of username_mainqueue_password 
 * Choose unique projectname this instance of queue and work_queue_workers on cluster share. User specific queues will get projectnames of username_projectname_mainqueue
 * Please choose starting port number for queue default (9123), for each username queue (from list of usernames), the portnumber will be startingportnumber+1,startingportnumber+2,... 
 * Default --workerdir is /scratch
@@ -34,14 +34,15 @@ python manager.py --jobinfofilepath=jobinfo.txt
 ```
 * Its best practice to make sure the filename for jobinfofilepath is unique, this file is copied to directory of daemon and then read in and deleted. So if multiple calls to daemon with same filename its possible one gets overwritten.
 * The port number is set by the controlhost listening script (manager.py)
-* See username_queuelogger.log for TaskID assignment, completetion and work_queue_worker submission
-* See username_errorlogger.log for failed jobs
-* See username_completed.log for jobs completed
-* See username_waiting.log for jobs still waiting in queue
-* See username_running.log for jobs still running
-* See username_output.log for more details on communication between workers and queue
+* Each user will have their own folder for logging information, the foldername is just the username
+* See username_mainqueue_queuelogger.log for TaskID assignment, completetion and work_queue_worker submission
+* See username_mainqueue_errorlogger.log for failed jobs
+* See username_mainqueue_completed.log for jobs completed
+* See username_mainqueue__waiting.log for jobs still waiting in queue
+* See username_mainqueue__running.log for jobs still running
+* See username_mainqueue__output.log for more details on communication between workers and queue
 * See worker.debug under workerdir/username on each node for specific information about worker node
-* work_queue_status -M username_projectname
+* work_queue_status -M username_mainqueue_projectname
 * See https://cctools.readthedocs.io/en/stable/work_queue/ for more info
 
 
@@ -133,6 +134,7 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 * include a \# in the line to ignore hostnames in front (in nodeinfo.txt)
 * If UNK is in column, this indicates program could not ping host for information and this will not be used for restricting the work_queue_worker on that host
 * Every few minutes manager.py will read Google spreadsheet and update nodeinfo.txt with usernames assigned to nodes/GPU cards. Then manager.py will read nodeinfo.txt, then block workers that are not allowed in user-specific queue. If previoiusly user was not allowed to use a node but then now is, then manager.py will unblock that host for user specific queue. https://docs.google.com/spreadsheets/d/1EOlUwFpdNU2uBZ5XrHSvZnRYCUCOw5tCSkFisTm3big/edit#gid=979716892
+* Emails will be sent from renlabclusterreport@gmail.com to users informing them they have 15 minutes to make changes to spreadsheet when any change in resource allocation is detected. Usernames must have queues enabled (they must be using the RenLabCluster daemon) in order for emails to be sent. By default all users in userstoemail.txt are enabled. 
 * The spreadsheet is accessed via credentials.json and the title called 'Ren lab cluster usage'. Do NOT change any of these or column order.
 * If the same username is in all cards for a node under CPUUsername column, then only that user will be alloewd to use CPU resources on that node. If a single value is left blank (on any of the cards for that node,even if there is no GPU), then anyuser will be allowed access to CPU resources on that node.
 * Each username is counted for each card for each node under the GPUUsername column, the total cards for that node and username are set on the work_queue_worker for that user to use. 

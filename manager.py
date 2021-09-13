@@ -533,7 +533,7 @@ def SendEmails(usernametonodetodifferentusableproc,usernametonodetodifferentusab
             diskresources=[prevusabledisk,differentusabledisk]
             ramresources=[prevusableram,differentusableram]
             procresources=[prevusableproc,differentusableproc]
-            cardresources=[prevusabledisk,differentusabledisk]
+            cardresources=[prevcardcount,differentcardcount]
             diskmsg=GenerateMessage(diskresources,'disk',username,node)
             rammsg=GenerateMessage(diskresources,'ram',username,node)
             procmsg=GenerateMessage(procresources,'proc',username,node)
@@ -660,7 +660,7 @@ def WriteToAllQueuesAllUsers(usernametoqueuenametologgers,string,usernametoqueue
 def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber):
     
     usernames=list(usernametoqueuenametoqueue.keys())
-    ReadSheetsUpdateFile(usernames,nodelistfilepath)
+    usernametoqueuenametologgers=ReadSheetsUpdateFile(usernames,nodelistfilepath,usernametoqueuenametologgers,usernametoqueuenametolognames)
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
 
     if detectresourceallocationchange==False: 
@@ -951,10 +951,19 @@ def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetouser
     temp.close()
 
 
-def ReadSheetsUpdateFile(usernames,nodetopology):
-    gpunodetousername,cpunodetousername=ReadSheets()
-    WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames)  
-
+def ReadSheetsUpdateFile(usernames,nodetopology,usernametoqueuenametologgers,usernametoqueuenametolognames):
+    try:
+        gpunodetousername,cpunodetousername=ReadSheets()
+        WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames)  
+    except:
+        traceback.print_exc(file=sys.stdout)
+        text = str(traceback.format_exc())
+        for username,queuenametologgers in usernametoqueuenametologgers.items():
+            for queuename,loggers in queuenametologgers.items():
+                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],str(text),usernametoqueuenametolognames[username][queuename],0)
+                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],str(text),usernametoqueuenametolognames[username][queuename],1)
+   
+    return usernametoqueuenametologgers
 
 def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username):
     import work_queue as wq
