@@ -227,7 +227,7 @@ def ReadNodeList(nodelistfilepath,usernames):
 
 
     if len(nodelist)==0:
-        raise ValueError('Node list has no nodes to read from')
+        ReadNodeList(nodelistfilepath,usernames)
     return nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames
 
 
