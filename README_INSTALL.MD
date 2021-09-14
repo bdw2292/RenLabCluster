@@ -115,9 +115,9 @@ else
 
 fi
 if [ $OSVERSION == 8 ] ; then
-    export PATH=/home/bdw2292/TheLatestTinkerOS8/bin/:$PATH
+    export PATH=/home/bdw2292/NewestTinkerOS8/bin/:$PATH
 else
-    export PATH=/home/bdw2292/TheLatestTinker/bin/:$PATH
+    export PATH=/home/bdw2292/NewestTinker/bin/:$PATH
 fi
 
 conda activate amoebamdpoltype
