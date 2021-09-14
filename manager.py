@@ -1019,6 +1019,13 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     for username in usernames:
         if not os.path.isdir(username):
             os.mkdir(username)
+        os.chdir(username)
+        files=os.listdir()
+        for f in files:
+            if '.log' in f:
+                os.remove(f)
+
+        os.chdir('..')
         usernametoqueuenametotaskidtotasktag[username]={}
         usernametoqueuenametonodetoworkerpid[username]={}
         usernametoqueuenametonodetoworkerpid[username]={}

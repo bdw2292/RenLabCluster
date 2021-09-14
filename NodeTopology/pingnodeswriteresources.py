@@ -268,11 +268,17 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
             node='#'+node # do this for now until we can set --gpus 0
         if cardtype==None:
             cardtype='UNK'
-        count=int(cardcount)+1 
-        for i in range(count):
-            cardstring='-'+str(i)
+        count=int(cardcount)
+        if count>0: 
+            for i in range(count):
+                cardstring='-'+str(i)
+                string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+coreconsumptionratio+' '+ramconsumptionratio+' '+diskconsumptionratio+'\n'
+                temp.write(string)
+        else:
+            cardstring='-'+str(0)
             string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+coreconsumptionratio+' '+ramconsumptionratio+' '+diskconsumptionratio+'\n'
             temp.write(string)
+
     temp.close()
 
 nodelist=ReadNodeList(nodelistfilepath)
