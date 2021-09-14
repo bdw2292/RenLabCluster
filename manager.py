@@ -484,12 +484,13 @@ def DetectResourceChange(usernametonodetousableresource,prevusernametonodetousab
     for username, nodetousableresource in usernametonodetousableresource.items():
         prevnodetousableresource=prevusernametonodetousableresource[username]
         for node,usableresource in nodetousableresource.items():
-            prevusableresource=prevnodetousableresource[node]
-            if usableresource!=prevusableresource:
-                change=True
-                if username not in usernametonodetodifferentusableresource.keys():
-                    usernametonodetodifferentusableresource[username]={}
-                usernametonodetodifferentusableresource[username][node]=usableresource
+            if node in prevnodetousableresource.keys():
+                prevusableresource=prevnodetousableresource[node]
+                if usableresource!=prevusableresource:
+                    change=True
+                    if username not in usernametonodetodifferentusableresource.keys():
+                        usernametonodetodifferentusableresource[username]={}
+                    usernametonodetodifferentusableresource[username][node]=usableresource
     
 
     return change,usernametonodetodifferentusableresource
@@ -695,7 +696,14 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
 
     if detectresourceallocationchange==False: 
-        detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
+        try:
+            detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
+        except:
+            traceback.print_exc(file=sys.stdout)
+            text = str(traceback.format_exc())
+            print(text,flush=True)
+
+
         if detectresourceallocationchange==True:
             timedetectedchange=time.time()
 
