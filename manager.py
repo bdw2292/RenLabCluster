@@ -8,6 +8,7 @@ import traceback
 import logging
 import random
 import signal
+from threading import Thread
 
 global queueloggerfile
 global errorloggerfile
@@ -95,88 +96,89 @@ def ReadNodeList(nodelistfilepath,usernames):
 
 
     lowconsumratio=.2
-    if os.path.isfile(nodelistfilepath):
-        temp=open(nodelistfilepath,'r')
-        results=temp.readlines()
-        temp.close()
-        for line in results:
-            linesplit=line.split()
-            if len(linesplit)<1:
-                continue
-            newline=line.replace('\n','')
-            if '#' not in line:
-                linesplit=newline.split()
-                card=linesplit[0]
-                node=card[:-2]
-                cardvalue=int(card[-1])
-                if node not in nodelist:
-                    nodelist.append(node)
-                hasgpu=linesplit[1]
-                if hasgpu=="GPU":
-                    nodetohasgpu[node]=True
-                else:
-                    nodetohasgpu[node]=False
-                proc=linesplit[3]
-                ram=linesplit[4]
-                scratch=linesplit[5]
-                coreconsumratio=float(linesplit[6])
-                ramconsumratio=float(linesplit[7])
-                diskconsumratio=float(linesplit[8])
-                if len(linesplit)>=9+1:
-                    cpuusername=linesplit[9]
-                else:
-                    cpuusername='ANYUSER'
-                if len(linesplit)>=10+1:
-                    gpuusername=linesplit[10]
-                else:
-                    gpuusername='ANYUSER'
+    while not os.path.isfile(nodelistfilepath):
+        time.sleep(1)
+    temp=open(nodelistfilepath,'r')
+    results=temp.readlines()
+    temp.close()
+    for line in results:
+        linesplit=line.split()
+        if len(linesplit)<1:
+            continue
+        newline=line.replace('\n','')
+        if '#' not in line:
+            linesplit=newline.split()
+            card=linesplit[0]
+            node=card[:-2]
+            cardvalue=int(card[-1])
+            if node not in nodelist:
+                nodelist.append(node)
+            hasgpu=linesplit[1]
+            if hasgpu=="GPU":
+                nodetohasgpu[node]=True
+            else:
+                nodetohasgpu[node]=False
+            proc=linesplit[3]
+            ram=linesplit[4]
+            scratch=linesplit[5]
+            coreconsumratio=float(linesplit[6])
+            ramconsumratio=float(linesplit[7])
+            diskconsumratio=float(linesplit[8])
+            if len(linesplit)>=9+1:
+                cpuusername=linesplit[9]
+            else:
+                cpuusername='ANYUSER'
+            if len(linesplit)>=10+1:
+                gpuusername=linesplit[10]
+            else:
+                gpuusername='ANYUSER'
 
 
-                if proc!='UNK':
-                    proc=str(int(int(proc)*coreconsumratio))
-                    lowproc=str(int(int(proc)*lowconsumratio))
-                else:
-                    lowproc=proc
-                
-                if ram!='UNK':
-                    ram=str(int(int(ram)*ramconsumratio))
-                    lowram=str(int(int(ram)*lowconsumratio))
-                else:
-                    lowram=ram
+            if proc!='UNK':
+                proc=str(int(int(proc)*coreconsumratio))
+                lowproc=str(int(int(proc)*lowconsumratio))
+            else:
+                lowproc=proc
+            
+            if ram!='UNK':
+                ram=str(int(int(ram)*ramconsumratio))
+                lowram=str(int(int(ram)*lowconsumratio))
+            else:
+                lowram=ram
 
-                if scratch!='UNK':
-                    scratch=str(int(int(scratch)*diskconsumratio))
-                    lowscratch=str(int(int(scratch)*lowconsumratio))
-                else:
-                    lowscratch=scratch
+            if scratch!='UNK':
+                scratch=str(int(int(scratch)*diskconsumratio))
+                lowscratch=str(int(int(scratch)*lowconsumratio))
+            else:
+                lowscratch=scratch
 
 
-                nodetousableram[node]=ram
-                nodetousabledisk[node]=scratch
-                nodetousableproc[node]=proc
-                nodetolowram[node]=lowram
-                nodetolowdisk[node]=lowscratch
-                nodetolowproc[node]=lowproc
+            nodetousableram[node]=ram
+            nodetousabledisk[node]=scratch
+            nodetousableproc[node]=proc
+            nodetolowram[node]=lowram
+            nodetolowdisk[node]=lowscratch
+            nodetolowproc[node]=lowproc
 
-                if node not in nodetocards.keys():
-                    nodetocards[node]=[]
-                nodetocards[node].append(card)
-                cardtoallowedcpuusernames[card]=[]
-                cardtoallowedgpuusernames[card]=[]
-                if cpuusername=='ANYUSER':
-                    for username in usernames: 
-                        if username not in cardtoallowedcpuusernames[card]:
-                            cardtoallowedcpuusernames[card].append(username)
-                else:
-                    if cpuusername not in cardtoallowedcpuusernames[card]:
-                        cardtoallowedcpuusernames[card].append(cpuusername)
-                if gpuusername=='ANYUSER':
-                    for username in usernames: 
-                        if username not in cardtoallowedgpuusernames[card]:
-                            cardtoallowedgpuusernames[card].append(username)
-                else:
-                    if gpuusername not in cardtoallowedgpuusernames[card]:
-                        cardtoallowedgpuusernames[card].append(gpuusername)
+            if node not in nodetocards.keys():
+                nodetocards[node]=[]
+            nodetocards[node].append(card)
+            cardtoallowedcpuusernames[card]=[]
+            cardtoallowedgpuusernames[card]=[]
+            if cpuusername=='ANYUSER':
+                for username in usernames: 
+                    if username not in cardtoallowedcpuusernames[card]:
+                        cardtoallowedcpuusernames[card].append(username)
+            else:
+                if cpuusername not in cardtoallowedcpuusernames[card]:
+                    cardtoallowedcpuusernames[card].append(cpuusername)
+            if gpuusername=='ANYUSER':
+                for username in usernames: 
+                    if username not in cardtoallowedgpuusernames[card]:
+                        cardtoallowedgpuusernames[card].append(username)
+            else:
+                if gpuusername not in cardtoallowedgpuusernames[card]:
+                    cardtoallowedgpuusernames[card].append(gpuusername)
     for node,cards in nodetocards.items():
         usernametocardcount={}
         usableram=nodetousableram[node]
@@ -690,7 +692,6 @@ def WriteToAllQueuesAllUsers(usernametoqueuenametologgers,string,usernametoqueue
 def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber):
     
     usernames=list(usernametoqueuenametoqueue.keys())
-    usernametoqueuenametologgers=ReadSheetsUpdateFile(usernames,nodelistfilepath,usernametoqueuenametologgers,usernametoqueuenametolognames)
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
 
     if detectresourceallocationchange==False: 
@@ -981,19 +982,18 @@ def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetouser
     temp.close()
 
 
-def ReadSheetsUpdateFile(usernames,nodetopology,usernametoqueuenametologgers,usernametoqueuenametolognames):
-    try:
-        gpunodetousername,cpunodetousername=ReadSheets()
-        WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames)  
-    except:
-        traceback.print_exc(file=sys.stdout)
-        text = str(traceback.format_exc())
-        for username,queuenametologgers in usernametoqueuenametologgers.items():
-            for queuename,loggers in queuenametologgers.items():
-                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],str(text),usernametoqueuenametolognames[username][queuename],0)
-                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],str(text),usernametoqueuenametolognames[username][queuename],1)
+def ReadSheetsUpdateFile(usernames,nodetopology):
+    while True:
+        try:
+            gpunodetousername,cpunodetousername=ReadSheets()
+            WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames) 
+        except:
+            traceback.print_exc(file=sys.stdout)
+            text = str(traceback.format_exc())
+            print(text,flush=True)
+
+        time.sleep(60) 
    
-    return usernametoqueuenametologgers
 
 def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username):
     import work_queue as wq
@@ -1069,6 +1069,8 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     senderpassword='amoebaisbest'
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
     jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
+    thread = Thread(target=ReadSheetsUpdateFile, args=(usernames,nodelistfilepath,))
+    thread.start()
     if startworkers==True:
         usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
     

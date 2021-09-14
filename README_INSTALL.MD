@@ -1,5 +1,4 @@
 ## Setup for Cluster Submission
-* WARNING, install the ndcctools/conda envioronment on an old node like node37. Some static libraries may be different depending on linux OS version.
 ```
 git clone https://github.com/bdw2292/RenLabCluster.git
 conda create --name clusterenv --yes
