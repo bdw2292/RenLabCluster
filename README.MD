@@ -19,7 +19,7 @@
 * --timetokillworkers is optional argument. When a change in user allocated resources is detected, then program will wait timetokillworkers amount of time in minutes until workers on nodes with changed resources are killed and restarted with updated resource allocations (default 15 minutes)
 * Run the follwing command to listen and wait for input job files
 ```
-nohup python manager.py --projectname=projectname --password=password --startingportnumber=portnumber --workerdir=/scratch --bashrcpath=path_to_bashrc --startworkers &
+nohup python manager.py --projectname=projectname --password=password --startingportnumber=portnumber --workerdir=/scratch --bashrcpath=path_to_bashrc --startworkers --username=username &
 ```
 * poltype will prepare the inputs for you with keywords in inputfile (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292), see https://github.com/TinkerTools/poltype2
 * AMOEBAAnnihilator will also prepare inputs for you with keywords in input file (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292) https://github.com/bdw2292/AMOEBAAnnihilator

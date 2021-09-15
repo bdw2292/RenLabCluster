@@ -1,6 +1,16 @@
 ## Setup for Cluster Submission
+
+* Install miniconda or anaconda
+* Clone repo 
 ```
 git clone https://github.com/bdw2292/RenLabCluster.git
+```
+* Create conda from yml file or manually line by line
+```
+conda env create -f clusterenv.yml
+```
+* Manual install
+```
 conda create --name clusterenv --yes
 conda activate clusterenv
 conda install -c conda-forge ndcctools --yes
@@ -9,8 +19,16 @@ conda install -c conda-forge gspread --yes
 conda install -c conda-forge tqdm --yes
 ```
 
+
 ## Setup for bashrc
+* Install from yml file
 ```
+conda env create -f amoebamdpoltype.yml
+```
+
+* Manual install
+```
+conda deactivate
 conda create -n amoebamdpoltype python=3.6 psi4=1.3.2+ecbda83 -c psi4 --yes
 conda activate amoebamdpoltype
 conda install scipy --yes
@@ -24,7 +42,10 @@ conda install -c conda-forge cairosvg --yes
 conda install -c conda-forge pymbar --yes
 conda install -c conda-forge mdtraj --yes
 conda install tqdm --yes
-conda install -c anaconda packaging
+conda install -c anaconda packaging --yes
+conda install -c conda-forge ndcctools --yes
+conda install -c anaconda dill --yes
+
 ```
 
 * Bashrc example
