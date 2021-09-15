@@ -12,7 +12,7 @@ conda install -c conda-forge tqdm --yes
 ## Setup for bashrc
 ```
 conda create -n amoebamdpoltype python=3.6 psi4=1.3.2+ecbda83 -c psi4 --yes
-conda activate poltype
+conda activate amoebamdpoltype
 conda install scipy --yes
 conda install matplotlib --yes
 conda install -c conda-forge openbabel=2.4.1 --yes
@@ -22,15 +22,13 @@ conda install -c conda-forge mdanalysis --yes
 conda install -c conda-forge svgutils --yes
 conda install -c conda-forge cairosvg --yes
 conda install -c conda-forge pymbar --yes
-conda install matplotlib --yes
-conda install -c conda-forge openbabel=2.4.1 --yes
 conda install -c conda-forge mdtraj --yes
 conda install tqdm --yes
-conda install -c conda-forge rdkit --yes
 conda install -c anaconda packaging
 ```
 
 * Bashrc example
+* Dont forget to replace username in scratch with your username
 ```
 OSVERSION=`cat /etc/system-release`
 place="${OSVERSION//[!0-9]/}"
