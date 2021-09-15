@@ -897,7 +897,7 @@ def WriteToLogFile(loggerlist,string,loggernamelist,index):
         loggerlist[index].info(string)
     except:
         loggerlist[index].handlers[0].stream.close()
-        loggerlist[index].removeHandler(logger.handlers[0]) 
+        loggerlist[index].removeHandler(loggerlist[index].handlers[0]) 
         loggerlist[index]= SetupLogger(loggernamelist[index])   
     return loggerlist
 
