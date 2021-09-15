@@ -145,6 +145,9 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 * Multiple instances of the dameon are not allowed to run simultaneously. If the program is called while an instance is already running, the input jobs are just added to the existing job queue and then the second instance will exit. If the file daemon.pid exists, then the daemon will not start again.
 
 
+## Test Daemon
+* Run test AMOEBAAnnihilator job under TestMinAnnihilatorExample
+
 ## Updating manager without loss of service
 * If the current manager has a backup mode manager running, first kill the main manager (via PID in daemon.pid), then remove the daemon.pid file. This will cause the backup manager to become the new manager. Then you will want to run the updated mangaer.py in backupmode. After that, again kill the main manager (which still running under old manager.py) and delete the daemon.pid. This will cause the updated manager.py that was running in backupmode to become the primary manager. Then you can submit another manager in backup mode.
 
