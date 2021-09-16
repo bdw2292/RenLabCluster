@@ -1,5 +1,5 @@
 ## Setup for Cluster Submission
-
+* Make sure you can ssh into all nodes, so rsk keys exist for each node
 * Install miniconda or anaconda
 * Clone repo 
 ```
