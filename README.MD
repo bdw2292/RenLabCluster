@@ -100,11 +100,11 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * Example poltype files inputs
 * Need the cd at the front. Can only do this for nodes physically connected to NOVA, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
 ```
---job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=5GB --numproc=0 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
+--job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=0 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
 ```
 * Example AMOEBA Annihilator inputs
 ```
---job=cd /work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation && python /home/bdw2292/AMOEBAAnnihhilator/AMOEBAAnnihilatorModules/amoebaannihilator.py --numproc=0 --ram=5GB --disk=0GB --inputfilepaths=/work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation/AMOEBA.ini
+--job=cd /work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation && python /home/bdw2292/AMOEBAAnnihhilator/AMOEBAAnnihilatorModules/amoebaannihilator.py --numproc=0 --ram=10GB --disk=0GB --inputfilepaths=/work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation/AMOEBA.ini
 
 ```
 
