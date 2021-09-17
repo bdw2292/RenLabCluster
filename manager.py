@@ -691,99 +691,107 @@ def WriteToAllQueuesAllUsers(usernametoqueuenametologgers,string,usernametoqueue
 
 def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber):
     
-    usernames=list(usernametoqueuenametoqueue.keys())
-    nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
+    while True:
+        time.sleep(5)
+        breakout=False
+        usernames=list(usernametoqueuenametoqueue.keys())
+        nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
+        ReadSheetsUpdateFile(usernames,nodelistfilepath)
+        jobinfo={}
+        jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
+        if foundinputjobs==True:
+            usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag=SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag)
+        if detectresourceallocationchange==False: 
+            try:
+                detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
+            except:
+                traceback.print_exc(file=sys.stdout)
+                text = str(traceback.format_exc())
+                print(text,flush=True)
 
-    if detectresourceallocationchange==False: 
-        try:
-            detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
-        except:
-            traceback.print_exc(file=sys.stdout)
-            text = str(traceback.format_exc())
-            print(text,flush=True)
 
+            if detectresourceallocationchange==True:
+                timedetectedchange=time.time()
 
-        if detectresourceallocationchange==True:
-            timedetectedchange=time.time()
+        else:
+            currenttime=time.time()
+            diff=(currenttime-timedetectedchange)
+            if diff>=timetokillworkers: 
+                workerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames=FindWorkerPIDSToKill(differentusernametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames)
+                KillWorkers(workerpidstokill)
+                usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
+                timedetectedchange=None
+                detectresourceallocationchange=False
 
-    else:
-        currenttime=time.time()
-        diff=(currenttime-timedetectedchange)
-        if diff>=timetokillworkers: 
-            workerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames=FindWorkerPIDSToKill(differentusernametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames)
-            KillWorkers(workerpidstokill)
-            usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
-            timedetectedchange=None
-            detectresourceallocationchange=False
+        random.shuffle(usernames) # this ensures you dont get stuck serviving only one username until their queue is empty
+        for username in usernames:
+            if breakout==True:
+                break
+            queuenametoqueue=usernametoqueuenametoqueue[username]
+            queuenametotaskidtoinputline=usernametoqueuenametotaskidtoinputline[username]
+            queuenametotaskidtojob=usernametoqueuenametotaskidtojob[username]
+            queuenametotaskidtooutputfilepathslist=usernametoqueuenametotaskidtooutputfilepathslist[username]
+            queuenames=list(queuenametoqueue.keys())
+            random.shuffle(queuenames) # ensures that the first queue for user isnt the one that always gets serviced
+            for queuename in queuenames:
+                if breakout==True:
+                    break
+                q= queuenametoqueue[queuename]
+                taskidtoinputline=queuenametotaskidtoinputline[queuename]
+                taskidtooutputfilepathslist=queuenametotaskidtooutputfilepathslist[queuename]
+                WriteOutTaskStateLoggingInfo(taskidtoinputline,q,queuename,username) 
+                while not q.empty():
+                    if breakout==True:
+                        break
+                    t = q.wait(waittime)
 
-    jobinfo={}
-    random.shuffle(usernames) # this ensures you dont get stuck serviving only one username until their queue is empty
-    for username in usernames:
-        queuenametoqueue=usernametoqueuenametoqueue[username]
-        queuenametotaskidtoinputline=usernametoqueuenametotaskidtoinputline[username]
-        queuenametotaskidtojob=usernametoqueuenametotaskidtojob[username]
-        queuenametotaskidtooutputfilepathslist=usernametoqueuenametotaskidtooutputfilepathslist[username]
-        queuenames=list(queuenametoqueue.keys())
-        random.shuffle(queuenames) # ensures that the first queue for user isnt the one that always gets serviced
-        for queuename in queuenames:
-            q= queuenametoqueue[queuename]
-            taskidtoinputline=queuenametotaskidtoinputline[queuename]
-            taskidtooutputfilepathslist=queuenametotaskidtooutputfilepathslist[queuename]
-            WriteOutTaskStateLoggingInfo(taskidtoinputline,q,queuename,username) 
-            while not q.empty():
-                t = q.wait(waittime)
-                q=CheckForTaskCancellations(q,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtotasktag)
-                if t:
-                    taskid=str(t.id)
-                    inputline=taskidtoinputline[taskid]
-                    newoutputfilepaths=[] # sort by largest file size and move largest first (like move arc first so dont submit next job before arc and dyn are returned
-                    if taskid in taskidtooutputfilepathslist.keys():
-                        outputfilepaths=taskidtooutputfilepathslist[taskid]
-                        if outputfilepaths!=None:
-                            for outputfilepath in outputfilepaths:
-                                head,tail=os.path.split(outputfilepath)
-                                if os.path.isdir(head):
-                                    if os.path.isfile(tail):
-                                       newoutputfilepaths.append(outputfilepath) 
-                    newfiles=[os.path.split(i)[1] for i in newoutputfilepaths]
-                    newfilestofilepaths=dict(zip(newfiles,newoutputfilepaths))
-                    filesizes=[os.stat(thefile).st_size for thefile in newfiles]
-                    newfilestofilesizes=dict(zip(newfiles,filesizes))
-                    sorteddic={k: v for k, v in sorted(newfilestofilesizes.items(), key=lambda item: item[1],reverse=True)}  
-                    for filename in sorteddic.keys():
-                        filepath=newfilestofilepaths[filename]
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Moving file '+filename,usernametoqueuenametolognames[username][queuename],0)
-                        shutil.move(os.path.join(os.getcwd(),filename),filepath)
+                    q=CheckForTaskCancellations(q,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtotasktag)
+                    if t:
+                        taskid=str(t.id)
+                        inputline=taskidtoinputline[taskid]
+                        newoutputfilepaths=[] # sort by largest file size and move largest first (like move arc first so dont submit next job before arc and dyn are returned
+                        if taskid in taskidtooutputfilepathslist.keys():
+                            outputfilepaths=taskidtooutputfilepathslist[taskid]
+                            if outputfilepaths!=None:
+                                for outputfilepath in outputfilepaths:
+                                    head,tail=os.path.split(outputfilepath)
+                                    if os.path.isdir(head):
+                                        if os.path.isfile(tail):
+                                           newoutputfilepaths.append(outputfilepath) 
+                        newfiles=[os.path.split(i)[1] for i in newoutputfilepaths]
+                        newfilestofilepaths=dict(zip(newfiles,newoutputfilepaths))
+                        filesizes=[os.stat(thefile).st_size for thefile in newfiles]
+                        newfilestofilesizes=dict(zip(newfiles,filesizes))
+                        sorteddic={k: v for k, v in sorted(newfilestofilesizes.items(), key=lambda item: item[1],reverse=True)}  
+                        for filename in sorteddic.keys():
+                            filepath=newfilestofilepaths[filename]
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Moving file '+filename,usernametoqueuenametolognames[username][queuename],0)
+                            shutil.move(os.path.join(os.getcwd(),filename),filepath)
+                            
+                        exectime = t.cmd_execution_time/1000000
+                        returnstatus=t.return_status
+                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'A job has finished Task %s, return status= %s!\n' % (str(taskid),str(returnstatus)),usernametoqueuenametolognames[username][queuename],0)
+                        if returnstatus!=0:
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Error: Job did not terminate normally '+inputline,usernametoqueuenametolognames[username][queuename],1)
+
+                        try:
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n',usernametoqueuenametolognames[username][queuename],0)
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Host = " + str(t.hostname) + '\n',usernametoqueuenametolognames[username][queuename],0)
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Execution time = " + str(exectime),usernametoqueuenametolognames[username][queuename],0)
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk),usernametoqueuenametolognames[username][queuename],0)
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk),usernametoqueuenametolognames[username][queuename],0)
+                            if t.limits_exceeded and t.limits_exceeded.cores > -1:
+                                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task exceeded its cores allocation.",usernametoqueuenametolognames[username][queuename],0)
+                        except:
+                            pass # sometimes task returns as None?? not very often though
+                    else:
+                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" % (q.stats.workers_init, q.stats.workers_idle, q.stats.workers_busy, q.stats.workers_joined, q.stats.workers_removed),usernametoqueuenametolognames[username][queuename],0)
+                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Tasks: %i running, %i waiting, %i dispatched, %i submitted, %i total complete\n"% (q.stats.tasks_running, q.stats.tasks_waiting, q.stats.tasks_dispatched, q.stats.tasks_submitted, q.stats.tasks_done),usernametoqueuenametolognames[username][queuename],0)
+                        usernametoqueuenametoqueue[username][queuename]=q
                         
-                    exectime = t.cmd_execution_time/1000000
-                    returnstatus=t.return_status
-                    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'A job has finished Task %s, return status= %s!\n' % (str(taskid),str(returnstatus)),usernametoqueuenametolognames[username][queuename],0)
-                    if returnstatus!=0:
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Error: Job did not terminate normally '+inputline,usernametoqueuenametolognames[username][queuename],1)
-
-                    try:
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n',usernametoqueuenametolognames[username][queuename],0)
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Host = " + str(t.hostname) + '\n',usernametoqueuenametolognames[username][queuename],0)
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Execution time = " + str(exectime),usernametoqueuenametolognames[username][queuename],0)
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task used %s cores, %s MB memory, %s MB disk" % (t.resources_measured.cores,t.resources_measured.memory,t.resources_measured.disk),usernametoqueuenametolognames[username][queuename],0)
-                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task was allocated %s cores, %s MB memory, %s MB disk" % (t.resources_requested.cores,t.resources_requested.memory,t.resources_requested.disk),usernametoqueuenametolognames[username][queuename],0)
-                        if t.limits_exceeded and t.limits_exceeded.cores > -1:
-                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Task exceeded its cores allocation.",usernametoqueuenametolognames[username][queuename],0)
-                    except:
-                        pass # sometimes task returns as None?? not very often though
-                else:
-                    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Workers: %i init, %i idle, %i busy, %i total joined, %i total removed\n" % (q.stats.workers_init, q.stats.workers_idle, q.stats.workers_busy, q.stats.workers_joined, q.stats.workers_removed),usernametoqueuenametolognames[username][queuename],0)
-                    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Tasks: %i running, %i waiting, %i dispatched, %i submitted, %i total complete\n"% (q.stats.tasks_running, q.stats.tasks_waiting, q.stats.tasks_dispatched, q.stats.tasks_submitted, q.stats.tasks_done),usernametoqueuenametolognames[username][queuename],0)
-                    usernametoqueuenametoqueue[username][queuename]=q
-                    jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
-                    if foundinputjobs==True:
-                        usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag=SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag)
-                    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber)
+                        breakout=True
        
     
-    jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
-    usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag=SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag)
-    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber)
 
 
 def WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames):
@@ -892,13 +900,67 @@ def CheckForTaskCancellations(q,usernametoqueuenametotaskidtojob,usernametoqueue
     return q
 
 def WriteToLogFile(loggerlist,string,loggernamelist,index):
-    try:
-        loggerlist[index].info(string)
-    except:
-        loggerlist[index].handlers[0].stream.close()
-        loggerlist[index].removeHandler(loggerlist[index].handlers[0]) 
-        loggerlist[index]= SetupLogger(loggernamelist[index])   
+    loggerlist[index].info(string)
     return loggerlist
+
+
+def ReadSheets():
+    import gspread
+    gc = gspread.service_account(filename='credentials.json')
+    sh=gc.open('Ren lab cluster usage')
+    worksheet=sh.sheet1
+    noderes=worksheet.col_values(1)
+    usernameres=worksheet.col_values(7)
+    gpunodetousername=dict(zip(noderes,usernameres))
+    usernameres=worksheet.col_values(6)
+    cpunodetousername=dict(zip(noderes,usernameres))
+    return gpunodetousername,cpunodetousername
+
+
+def ReadSheetsUpdateFile(usernames,nodetopology):
+    try:
+        gpunodetousername,cpunodetousername=ReadSheets()
+        WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames) 
+    except:
+        traceback.print_exc(file=sys.stdout)
+        text = str(traceback.format_exc())
+        print(text,flush=True)
+
+
+def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames):
+    temp=open(nodetopology,'r')
+    results=temp.readlines()
+    temp.close()
+    temp=open(nodetopology,'w')
+    for line in results:
+        if '#' not in line:
+            linesplit=line.split()
+            card=linesplit[0]
+            linesplit=linesplit[:8+1]
+            line=' '.join(linesplit)
+            anyuser=False
+            if card in gpunodetousername.keys():
+                gpuusername=gpunodetousername[card]
+                if gpuusername in usernames:
+                    pass
+                else:
+                    anyuser=True
+            if anyuser==True:
+                gpuusername='ANYUSER'
+            anyuser=False
+            if card in cpunodetousername.keys():
+                cpuusername=cpunodetousername[card]
+                if cpuusername in usernames:
+                    pass
+                else:
+                    anyuser=True
+            if anyuser==True:
+                cpuusername='ANYUSER'
+            line=line.replace('\n','')+' '+cpuusername+' '+gpuusername+'\n'
+        temp.write(line)
+    temp.close()
+
+
 
 def SetupLogger(log_file, level=logging.INFO):
     name=log_file.split('.')[0]
@@ -1026,6 +1088,7 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     senderpassword='amoebaisbest'
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
     jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
+    ReadSheetsUpdateFile(usernames,nodelistfilepath)
     if startworkers==True:
         usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
     

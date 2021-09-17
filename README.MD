@@ -145,11 +145,6 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 * Multiple instances of the dameon are not allowed to run simultaneously. If the program is called while an instance is already running, the input jobs are just added to the existing job queue and then the second instance will exit. If the file daemon.pid exists, then the daemon will not start again.
 
 
-## Reading Spreadsheets
-```
-conda activate clusterenv
-nohup python readspreadsheet.py &
-```
 
 ## Test Daemon
 * Run test AMOEBAAnnihilator job under TestMinAnnihilatorExample
