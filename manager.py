@@ -34,7 +34,7 @@ waitingloggerfile='waiting.log'
 completedloggerfile='completed.log'
 runningloggerfile='running.log'
 backupmanager=False
-usernametoemaillist='usernamestoemail.txt'
+usernametoemaillist=os.path.join('NodeTopology','usernamestoemail.txt')
 startworkers=False
 username=None
 timetokillworkers=15*60 # minutes
@@ -906,7 +906,7 @@ def WriteToLogFile(loggerlist,string,loggernamelist,index):
 
 def ReadSheets():
     import gspread
-    gc = gspread.service_account(filename='credentials.json')
+    gc = gspread.service_account(filename=os.path.join('NodeTopology','credentials.json'))
     sh=gc.open('Ren lab cluster usage')
     worksheet=sh.sheet1
     noderes=worksheet.col_values(1)

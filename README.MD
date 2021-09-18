@@ -120,7 +120,7 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * To generate nodeinfo.txt file run the following
 
 ```
-python pingnodeswriteresources.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.8 --ramconsumptionratio=.8 --diskconsumptionratio=.8 --mincardtype=1000 
+python pingnodes.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.8 --ramconsumptionratio=.8 --diskconsumptionratio=.8 --mincardtype=1000 
 ```
 * analyze_gpu is run on each node with bashrcpath to test if envioronment for that node is correct
 * The columns within nodeinfo.txt are as follows       
@@ -148,6 +148,14 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 
 ## Test Daemon
 * Run test AMOEBAAnnihilator job under TestMinAnnihilatorExample
+
+## Monitor Resource Usage
+* Run the command bellow
+* Every two days send email for users that are not using their CPU/GPU node reservations on spreadsheet
+* Assumes nodeinfo.txt already exists and usernames are being written to file in real time
+```
+nohup python pingnodes.py --monitorresourceusage &
+```
 
 ## Updating manager without loss of service
 * If the current manager has a backup mode manager running, first kill the main manager (via PID in daemon.pid), then remove the daemon.pid file. This will cause the backup manager to become the new manager. Then you will want to run the updated mangaer.py in backupmode. After that, again kill the main manager (which still running under old manager.py) and delete the daemon.pid. This will cause the updated manager.py that was running in backupmode to become the primary manager. Then you can submit another manager in backup mode.
