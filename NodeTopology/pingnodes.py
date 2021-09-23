@@ -9,9 +9,9 @@ import getopt
 mincardtype=1000
 nodelistfilepath='nodes.txt'
 nodetopofilepath='nodeinfo.txt'
-coreconsumptionratio='.8'
-ramconsumptionratio='.8'
-diskconsumptionratio='.8'
+coreconsumptionratio='.7'
+ramconsumptionratio='.7'
+diskconsumptionratio='.7'
 bashrcpath='/home/bdw2292/.allpurpose.bashrc'
 filename='nodeinfo.txt'
 monitorresourceusage=False
@@ -411,15 +411,30 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
             node='#'+node # do this for now until we can set --gpus 0
         if cardtype==None:
             cardtype='UNK'
+        if hasgpu==True:
+            thecoreconsumptionratio=str(.5)
+            theramconsumptionratio=str(.5)
+            thediskconsumptionratio=str(.6)
+        else:
+            thecoreconsumptionratio=coreconsumptionratio
+            theramconsumptionratio=ramconsumptionratio
+            thediskconsumptionratio=diskconsumptionratio
+
+        if ram!='UNK':
+            if float(ram)<15000:
+                thecoreconsumptionratio=str(.2)
+                theramconsumptionratio=str(.2)
+    
+
         count=int(cardcount)
         if count>0: 
             for i in range(count):
                 cardstring='-'+str(i)
-                string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+coreconsumptionratio+' '+ramconsumptionratio+' '+diskconsumptionratio+'\n'
+                string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+'\n'
                 temp.write(string)
         else:
             cardstring='-'+str(0)
-            string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+coreconsumptionratio+' '+ramconsumptionratio+' '+diskconsumptionratio+'\n'
+            string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+'\n'
             temp.write(string)
 
     temp.close()

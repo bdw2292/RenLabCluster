@@ -24,5 +24,5 @@ def KillSignal(cpunodes,killstring):
 
 
 cpunodes=ReadCPUNodes(cpunodepath)
-killstring='pkill -U bdw2292 '
+killstring="pkill -U bdw2292"
 KillSignal(cpunodes,killstring)

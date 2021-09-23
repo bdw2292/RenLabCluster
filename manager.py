@@ -37,8 +37,9 @@ backupmanager=False
 usernametoemaillist=os.path.join('NodeTopology','usernamestoemail.txt')
 startworkers=False
 username=None
+runallusers=False
 timetokillworkers=15*60 # minutes
-opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','startingportnumber=','workerdir=','backupmanager','startworkers','username=','timetokillworkers='])
+opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','startingportnumber=','workerdir=','backupmanager','startworkers','username=','timetokillworkers=','runallusers='])
 for o, a in opts:
     if o in ("--bashrcpath"):
         envpath=a
@@ -60,6 +61,8 @@ for o, a in opts:
         workerdir=a
     elif o in ("--backupmanager"):
         backupmanager=True
+    elif o in ("--runallusers"):
+        runallusers=True
     elif o in ("--startworkers"):
         startworkers=True
     elif o in ("--timetokillworkers"):
@@ -244,6 +247,7 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password # for some reason cctools has bug in specifying password
+    cmdstr+=' '+'--disk '+str(disk)
     mkdirstring='mkdir '+fullworkdir+' ; '
     cmdstr=mkdirstring+cmdstr
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -302,6 +306,11 @@ def ReadJobInfoFromFile(jobinfo,filename):
             if gpujob==False:
                 if convram<2000:
                     continue    
+                if numproc==0:
+                    continue
+                if 'poltype.py' in cmdstr:
+                    if convram<10000:
+                        continue
             
             array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline','disk','username','gpucard','gpujob']
             for key in array:
@@ -1007,7 +1016,7 @@ def ReadUsernameList(usernamelist):
 
   
 
-def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username):
+def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
     import work_queue as wq
     if os.path.isfile(pidfile):
         raise ValueError('Daemon instance is already running')
@@ -1025,6 +1034,8 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
     if username!=None:
         usernames=[username]
+    if usernames==None and runallusers==False:
+        raise ValueError(' please enter username or add option --runallusers ')
     portnumber=startingportnumber
     usernametoqueuenametotaskidtooutputfilepathslist={}
     usernametoqueuenametotaskidtoinputline={}
@@ -1097,10 +1108,10 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     return usernametoqueuenametologgers,usernametoqueuenametolognames
 
 
-def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username):
+def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
     CheckInputs(password,projectname)
     try:
-        usernametoqueuenametologgers,usernametoqueuenametolognames=StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username)   
+        usernametoqueuenametologgers,usernametoqueuenametolognames=StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)   
     except:
         traceback.print_exc(file=sys.stdout)
         text = str(traceback.format_exc())
@@ -1116,7 +1127,7 @@ def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectn
             os.remove(pidfile)
  
 if jobinfofilepath==None and backupmanager==False:
-    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username)
+    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)
 elif jobinfofilepath!=None and backupmanager==False:
 
     if canceltaskid==None and canceltasktag==None:
@@ -1138,4 +1149,4 @@ elif jobinfofilepath==None and backupmanager==True:
         time.sleep(waitingtime)
     jobinfofilepath=waitingloggerfile
     CopyJobInfoFilePath(jobinfofilepath,thedir)   
-    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username)
+    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)

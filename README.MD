@@ -28,7 +28,9 @@ nohup python manager.py --projectname=projectname --password=password --starting
 * If --job is not specified, then job will be rejected.
 * If --inputfilepaths is not specified, then job will be rejected.
 * If --ram,--disk, or --numproc is not specified, then job will get rejected. These are needed to prevent all resources of certain type being allocated to a task (can happen when dont specify resources).
-* If --ram less than 2GB is specified for any CPU job, then it will get rejected. This is to prevent too many jobs from being sent to a single compute node. 
+* If --ram less than 2GB is specified for any CPU job, then it will get rejected. This is to prevent too many jobs from being sent to a single compute node.
+* If CPU job and doesnt have at least 1 cpu core specified, job will be rejected. 
+* If poltype job doesnt have at least 10GB ram (default from poltype), then job will be rejected
 ```
 python manager.py --jobinfofilepath=jobinfo.txt 
 ```
@@ -51,7 +53,7 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * --numproc specifies number of processors needed for job
 * --gpujob specfies to request 1 GPU for job (default is no GPU needed)
 * Specify as much info as possilbe (ram,scratch,numproc,gpujob), the daemon uses this information to assign multiple jobs per node.
-* Specify as much information as possible to be most efficient, numproc, disk, ram even for GPU jobs (which may require little ram or processors). By default, AMOEBAAnnihilator, will request --numproc=0, --disk=1MB and --ram=1MB and --gpujob. Thus taking up less cpu processors (internal count by cctools), if multiple cpu jobs are using processors on a compute node. 
+* Specify as much information as possible to be most efficient, numproc, disk, ram even for GPU jobs (which may require little ram or processors). By default, AMOEBAAnnihilator, will request --numproc=1, --disk=1MB and --ram=1MB and --gpujob. Thus taking up less cpu processors (internal count by cctools), if multiple cpu jobs are using processors on a compute node. 
 * GPU jobs are recognized via having _gpu in executable (like dynamic_gpu and bar_gpu)
 * jobinfofilepath is a text file with possible formats below
 * inputfilepaths are needed for CCtools to copy correct files to worker and run command
@@ -100,11 +102,11 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * Example poltype files inputs
 * Need the cd at the front. Can only do this for nodes physically connected to NOVA, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
 ```
---job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=0 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
+--job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=1 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
 ```
 * Example AMOEBA Annihilator inputs
 ```
---job=cd /work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation && python /home/bdw2292/AMOEBAAnnihhilator/AMOEBAAnnihilatorModules/amoebaannihilator.py --numproc=0 --ram=10GB --disk=0GB --inputfilepaths=/work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation/AMOEBA.ini
+--job=cd /work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation && python /home/bdw2292/AMOEBAAnnihhilator/AMOEBAAnnihilatorModules/amoebaannihilator.py --numproc=1 --ram=10GB --disk=0GB --inputfilepaths=/work/bdw2292/PoltypePaperMolecules/p-Dibromobenzene/p-Dibromobenzene_Simulation/AMOEBA.ini
 
 ```
 
@@ -120,8 +122,10 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 * To generate nodeinfo.txt file run the following
 
 ```
-python pingnodes.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.8 --ramconsumptionratio=.8 --diskconsumptionratio=.8 --mincardtype=1000 
+python pingnodes.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.7 --ramconsumptionratio=.7 --diskconsumptionratio=.7 --mincardtype=1000 
 ```
+* If node has less than 15GB memory, then consumption ratio for cores and ram is 20%
+* If GPU node, then consumption ratio for cores and ram is 50% and disk is 60%, otherwise 70%
 * analyze_gpu is run on each node with bashrcpath to test if envioronment for that node is correct
 * The columns within nodeinfo.txt are as follows       
 ```
