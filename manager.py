@@ -8,7 +8,7 @@ import traceback
 import logging
 import random
 import signal
-
+import copy
 global queueloggerfile
 global errorloggerfile
 global waitingloggerfile
@@ -38,7 +38,7 @@ usernametoemaillist=os.path.join('NodeTopology','usernamestoemail.txt')
 startworkers=False
 username=None
 runallusers=False
-timetokillworkers=15*60 # minutes
+timetokillworkers=1*.5*60 # minutes
 opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','startingportnumber=','workerdir=','backupmanager','startworkers','username=','timetokillworkers=','runallusers='])
 for o, a in opts:
     if o in ("--bashrcpath"):
@@ -85,7 +85,7 @@ def ReadNodeList(nodelistfilepath,usernames):
     nodetoallowedcpuusernames={}
     nodetoallowedgpuusernames={}
     nodetohasgpu={}
-
+    nodetocardtype={}
     usernametonodetousableram={}
     usernametonodetousabledisk={}
     usernametonodetousableproc={}
@@ -120,6 +120,8 @@ def ReadNodeList(nodelistfilepath,usernames):
                 nodetohasgpu[node]=True
             else:
                 nodetohasgpu[node]=False
+            cardtype=linesplit[2]
+            nodetocardtype[node]=cardtype
             proc=linesplit[3]
             ram=linesplit[4]
             scratch=linesplit[5]
@@ -128,12 +130,16 @@ def ReadNodeList(nodelistfilepath,usernames):
             diskconsumratio=float(linesplit[8])
             if len(linesplit)>=9+1:
                 cpuusername=linesplit[9]
+                if cpuusername not in usernames:
+                    cpuusername='NOUSER'
             else:
-                cpuusername='ANYUSER'
+                cpuusername='NOUSER'
             if len(linesplit)>=10+1:
                 gpuusername=linesplit[10]
+                if gpuusername not in usernames:
+                    gpuusername='NOUSER'
             else:
-                gpuusername='ANYUSER'
+                gpuusername='NOUSER'
 
 
             if proc!='UNK':
@@ -167,17 +173,13 @@ def ReadNodeList(nodelistfilepath,usernames):
             nodetocards[node].append(card)
             cardtoallowedcpuusernames[card]=[]
             cardtoallowedgpuusernames[card]=[]
-            if cpuusername=='ANYUSER':
-                for username in usernames: 
-                    if username not in cardtoallowedcpuusernames[card]:
-                        cardtoallowedcpuusernames[card].append(username)
+            if cpuusername=='NOUSER':
+                cardtoallowedcpuusernames[card]=[]
             else:
                 if cpuusername not in cardtoallowedcpuusernames[card]:
                     cardtoallowedcpuusernames[card].append(cpuusername)
-            if gpuusername=='ANYUSER':
-                for username in usernames: 
-                    if username not in cardtoallowedgpuusernames[card]:
-                        cardtoallowedgpuusernames[card].append(username)
+            if gpuusername=='NOUSER':
+                cardtoallowedgpuusernames[card]=[]
             else:
                 if gpuusername not in cardtoallowedgpuusernames[card]:
                     cardtoallowedgpuusernames[card].append(gpuusername)
@@ -230,7 +232,7 @@ def ReadNodeList(nodelistfilepath,usernames):
 
     if len(nodelist)==0:
         ReadNodeList(nodelistfilepath,usernames)
-    return nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames
+    return nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype
 
 
 def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkerpid,queuename):
@@ -240,14 +242,14 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     cmdstr+=' --workdir '+fullworkdir
     cmdstr+=' -d all -o '+os.path.join(fullworkdir,'worker.debug')
     if proc!='UNK':
-        cmdstr+=' '+'--cores '+proc
+        cmdstr+=' '+'--cores '+str(proc)
     if ram!='UNK':
-        cmdstr+=' '+'--memory '+ram
+        cmdstr+=' '+'--memory '+str(ram)
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
     #cmdstr+=' '+'--password '+password # for some reason cctools has bug in specifying password
-    cmdstr+=' '+'--disk '+str(disk)
+    #cmdstr+=' '+'--disk '+str(disk)
     mkdirstring='mkdir '+fullworkdir+' ; '
     cmdstr=mkdirstring+cmdstr
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -258,16 +260,20 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     usernametoqueuenametonodetoworkerpid[username][queuename][node]=pid
     return usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid
 
-def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid):
-    for username,nodetousableproc in usernametonodetousableproc.items():
-        nodetousableram=usernametonodetousableram[username]
-        nodetousabledisk=usernametonodetousabledisk[username]
+def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid):
+    for username,queuenametonodetousableproc in usernametoqueuenametonodetousableproc.items():
+        queuenametonodetousableram=usernametoqueuenametonodetousableram[username]
+        queuenametonodetousabledisk=usernametoqueuenametonodetousabledisk[username]
+        queuenametonodetocardcount=usernametoqueuenametonodetocardcount[username]
         queuenametoprojectname=usernametoqueuenametoprojectname[username]
         queuenametopassword=usernametoqueuenametopassword[username]
-        nodetocardcount=usernametonodetocardcount[username]
         queuenametoportnumber=usernametoqueuenametoportnumber[username]
-        for node in nodelist:
-            for queuename,portnumber in queuenametoportnumber.items():
+        for queuename,nodetousableproc in queuenametonodetousableproc.items():
+            nodetocardcount=queuenametonodetocardcount[queuename]
+            nodetousableram=queuenametonodetousableram[queuename]
+            nodetousabledisk=queuenametonodetousabledisk[queuename]
+            portnumber=queuenametoportnumber[queuename]
+            for node in nodelist:
                 if node in nodetousableproc.keys():
                     proc=nodetousableproc[node]
                     ram=nodetousableram[node]
@@ -279,7 +285,7 @@ def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,user
     return usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid
 
 
-def ReadJobInfoFromFile(jobinfo,filename):
+def ReadJobInfoFromFile(jobinfo,filename,usernametoqueuenametologgers,usernametoqueuenametolognames):
     if os.path.isfile(filename):
         temp=open(filename,'r')
         results=temp.readlines()
@@ -289,29 +295,48 @@ def ReadJobInfoFromFile(jobinfo,filename):
             if len(split)==0:
                 continue
             cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk,username,gpucard,gpujob=ParseJobInfo(line)
-
-            if inputfilepaths==None:
-                continue
+            string=''
             if username==None:
                 continue
+            if gpujob==True:
+                if gpucard==None:
+                    queuename=username+'_'+'maingpuqueue'
+                else:
+                    queuename=username+'_'+gpucard
+
+            else:
+                queuename=username+'_'+'maincpuqueue'
+
+            if inputfilepaths==None:
+                string+='inputfilepaths is not defined, will reject job '+'\n'
             if cmdstr==None:
-                continue
+                string+='cmdstr is not defined, will reject job '+'\n'
+
             if ram==None:
-                continue
+                string+='ram is not defined, will reject job '+'\n'
+
             if disk==None:
-                continue
+                string+='disk is not defined, will reject job '+'\n'
+
             if numproc==None:
-                continue
+                string+='numproc is not defined, will reject job '+'\n'
+
             convram=ConvertMemoryToMBValue(ram)      
             if gpujob==False:
                 if convram<2000:
-                    continue    
+                    string+='Not enough ram for CPU job (2GB), will reject job '+'\n'
+    
                 if numproc==0:
-                    continue
+                    string+='Not enough cores for CPU job (>=1), will reject job '+'\n'
+
                 if 'poltype.py' in cmdstr:
                     if convram<10000:
-                        continue
-            
+                        string+='poltype job not enough ram (10GB), will reject job '+'\n'
+
+            if string!='':
+                string+=line+'\n'
+                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
+                continue
             array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline','disk','username','gpucard','gpujob']
             for key in array:
                 if key not in jobinfo.keys():
@@ -397,7 +422,7 @@ def SplitScratch(string):
 
 
 
-def SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag):
+def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber):
     import work_queue as wq
     jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob=ReadJobInfoFromDic(jobinfo)
     for job,ram in jobtoram.items():
@@ -414,8 +439,18 @@ def SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskid
             username=jobtousername[job]
             gpucard=jobtogpucard[job]
             gpujob=jobtogpujob[job]
-            if gpucard==None:
-                queuename=username+'_'+'mainqueue'
+            
+            
+            if gpujob==True:
+                queuename=username+'_'+'maingpuqueue'
+            else:
+                queuename=username+'_'+'maincpuqueue'
+            if gpucard!=None:
+                queuename=username+'_'+gpucard
+            if queuename not in usernametoqueuenametologgers[username].keys():
+                queuenamelist=[queuename]
+                usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist)
+            
 
             usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Submitting tasks...",usernametoqueuenametolognames[username][queuename],0)
             if scratchpath!=None:
@@ -456,7 +491,7 @@ def SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskid
             usernametoqueuenametotaskidtoinputline[username][queuename][taskid]=inputline
             usernametoqueuenametotaskidtojob[username][queuename][taskid]=job
             usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Task ID of '+taskid+' is assigned to job '+cmdstr,usernametoqueuenametolognames[username][queuename],0)
-    return usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag
+    return usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber
 
 
 def WriteOutTaskStateLoggingInfo(taskidtoinputline,queue,queuename,username):
@@ -486,122 +521,187 @@ def WriteOutFile(array,theloggerfile,string):
     temp.close()
 
 
-def DetectResourceChange(usernametonodetousableresource,prevusernametonodetousableresource):
+def DetectResourceChange(usernametoqueuenametonodetousableresource,prevusernametoqueuenametonodetousableresource,nodetocardtype):
     change=False
-    usernametonodetodifferentusableresource={}
-    for username, nodetousableresource in usernametonodetousableresource.items():
-        prevnodetousableresource=prevusernametonodetousableresource[username]
-        for node,usableresource in nodetousableresource.items():
-            if node in prevnodetousableresource.keys():
-                prevusableresource=prevnodetousableresource[node]
-                if usableresource!=prevusableresource:
-                    change=True
-                    if username not in usernametonodetodifferentusableresource.keys():
-                        usernametonodetodifferentusableresource[username]={}
-                    usernametonodetodifferentusableresource[username][node]=usableresource
+    usernametoqueuenametonodetodifferentusableresource={}
+    for username,queuenametonodetousableresource in usernametoqueuenametonodetousableresource.items():
+        prevqueuenametonodetousableresource=prevusernametoqueuenametonodetousableresource[username]
+        for queuename,nodetousableresource in queuenametonodetousableresource.items():
+            if queuename in prevqueuenametonodetousableresource.keys():
+                prevnodetousableresource=prevqueuenametonodetousableresource[queuename]
+
+                for node,usableresource in nodetousableresource.items():
+                    if node in prevnodetousableresource.keys():
+                        prevusableresource=prevnodetousableresource[node]
+                        if usableresource!=prevusableresource:
+                            change=True
+                            if username not in usernametoqueuenametonodetodifferentusableresource.keys():
+                                usernametoqueuenametonodetodifferentusableresource[username]={}
+                            if queuename not in usernametoqueuenametonodetodifferentusableresource[username].keys():
+                                usernametoqueuenametonodetodifferentusableresource[username][queuename]={}
+                            usernametoqueuenametonodetodifferentusableresource[username][queuename][node]=usableresource
+            else:
+               change=True
+               if username not in usernametoqueuenametonodetodifferentusableresource.keys():
+                   usernametoqueuenametonodetodifferentusableresource[username]={}
+                   if queuename not in usernametoqueuenametonodetodifferentusableresource[username].keys():
+                       usernametoqueuenametonodetodifferentusableresource[username][queuename]={}
+                   usernametoqueuenametonodetodifferentusableresource[username][queuename][node]=usableresource
+                   isgpuqueuename=False
+                   for node,cardtype in nodetocardtype.items(): 
+                       if cardtype in queuename:
+                           isgpuqueuename=True
+                           break
+                   if isgpuqueuename==True:
+                       mainqueuename=username+'_'+'maingpuqueue'
+                       usernametoqueuenametonodetodifferentusableresource[username][mainqueuename][node]=0
+          
+
+
+    return change,usernametoqueuenametonodetodifferentusableresource
+
+
+
+
+def FindDifferentUsernameNodes(differentusernametoqueuenametonodelist,usernametoqueuenametonodetodifferentusableresource):
+    for username,queuenametonodetodifferentusableresource in usernametoqueuenametonodetodifferentusableresource.items():
+
+        for queuename,nodetodifferentusableresource in queuenametonodetodifferentusableresource.items():
+            for node,usableresource in nodetodifferentusableresource.items():
+                if username not in differentusernametoqueuenametonodelist.keys():
+                    differentusernametoqueuenametonodelist[username]={}
+                if queuename not in differentusernametoqueuenametonodelist[username].keys():
+                    differentusernametoqueuenametonodelist[username][queuename]=[]
+                if node not in differentusernametoqueuenametonodelist[username][queuename]:
+                    differentusernametoqueuenametonodelist[username][queuename].append(node)
+
+    return differentusernametoqueuenametonodelist
+
+def FindDifferentUsernameNodesAllDics(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount):
+    differentusernametoqueuenametonodelist={}
+
+    differentusernametoqueuenametonodelist=FindDifferentUsernameNodes(differentusernametoqueuenametonodelist,usernametoqueuenametonodetodifferentusableproc)
+    differentusernametoqueuenametonodelist=FindDifferentUsernameNodes(differentusernametoqueuenametonodelist,usernametoqueuenametonodetodifferentusableram)
+    differentusernametoqueuenametonodelist=FindDifferentUsernameNodes(differentusernametoqueuenametonodelist,usernametoqueuenametonodetodifferentusabledisk)
+    differentusernametoqueuenametonodelist=FindDifferentUsernameNodes(differentusernametoqueuenametonodelist,usernametoqueuenametonodetodifferentcardcount)
+    return differentusernametoqueuenametonodelist
+
+
+def AddUnchangedResources(usernametoqueuenametonodetodifferentresource,usernametoqueuenametonodetoresource,differentusernametoqueuenametonodelist):
+    for username, queuenametonodelist in differentusernametoqueuenametonodelist.items():
+        queuenametonodetoresource=usernametoqueuenametonodetoresource[username]
+        for queuename,nodelist in queuenametonodelist.items():
+            nodetoresource=queuenametonodetoresource[queuename]
+            for node in nodelist:
+                resource=nodetoresource[node]
+                if username not in usernametoqueuenametonodetodifferentresource.keys():
+                    usernametoqueuenametonodetodifferentresource[username]={}
+                if queuename not in usernametoqueuenametonodetodifferentresource[username].keys():
+                    usernametoqueuenametonodetodifferentresource[username][queuename]={}
+                if node not in usernametoqueuenametonodetodifferentresource[username][queuename].keys():
+                    usernametoqueuenametonodetodifferentresource[username][queuename][node]=resource 
+
+
+    return usernametoqueuenametonodetodifferentresource
+
+
+def AddUnchangedResourcesOnSameNodeAsChangedResource(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount):
+
+    differentusernametoqueuenametonodelist=FindDifferentUsernameNodesAllDics(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount)
+    usernametoqueuenametonodetodifferentusableproc=AddUnchangedResources(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetousableproc,differentusernametoqueuenametonodelist)
+    usernametoqueuenametonodetodifferentusableram=AddUnchangedResources(usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetousableram,differentusernametoqueuenametonodelist)
+    usernametoqueuenametonodetodifferentusabledisk=AddUnchangedResources(usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetousabledisk,differentusernametoqueuenametonodelist)
+    usernametoqueuenametonodetodifferentcardcount=AddUnchangedResources(usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametonodetocardcount,differentusernametoqueuenametonodelist)
+
+    return usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,differentusernametoqueuenametonodelist
+
+def InitializeEmptyResourceDic(nodetodifferentusableresource):
+    newnodetodifferentusableresource={}
+    for node in  nodetodifferentusableresource.keys():
+        newnodetodifferentusableresource[node]=0
+
+    return newnodetodifferentusableresource
+
+
+
+def SendEmails(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,prevusernametoqueuenametonodetodifferentusableproc,prevusernametoqueuenametonodetodifferentusableram,prevusernametoqueuenametonodetodifferentusabledisk,prevusernametoqueuenametonodetodifferentcardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword):
+    msgtoemail={}
+    for username,queuenametonodetodifferentusableproc in usernametoqueuenametonodetodifferentusableproc.items():
+        queuenametonodetodifferentusableram=usernametoqueuenametonodetodifferentusableram[username]
+        queuenametonodetodifferentusabledisk=usernametoqueuenametonodetodifferentusabledisk[username]
+        queuenametonodetodifferentcardcount=usernametoqueuenametonodetodifferentcardcount[username]
+        prevqueuenametonodetodifferentusableproc=prevusernametoqueuenametonodetodifferentusableproc[username]
+        prevqueuenametonodetodifferentusableram=prevusernametoqueuenametonodetodifferentusableram[username]
+        prevqueuenametonodetodifferentusabledisk=prevusernametoqueuenametonodetodifferentusabledisk[username]
+        prevqueuenametonodetodifferentcardcount=prevusernametoqueuenametonodetodifferentcardcount[username]
+        for queuename, nodetodifferentusableproc in  queuenametonodetodifferentusableproc.items():
+            nodetodifferentusableram=queuenametonodetodifferentusableram[queuename]
+            nodetodifferentusabledisk=queuenametonodetodifferentusabledisk[queuename]
+            nodetodifferentcardcount=queuenametonodetodifferentcardcount[queuename]
+            if queuename in prevqueuenametonodetodifferentusableproc.keys():
+                prevnodetousableproc=prevqueuenametonodetodifferentusableproc[queuename]
+            else:
+                prevnodetousableproc=InitializeEmptyResourceDic(nodetodifferentusableproc)
+            if queuename in prevqueuenametonodetodifferentusableram.keys():
+                prevnodetousableram=prevqueuenametonodetodifferentusableram[queuename]
+            else:
+                prevnodetousableram=InitializeEmptyResourceDic(nodetodifferentusableram)
+
+            if queuename in prevqueuenametonodetodifferentusabledisk.keys():
+                prevnodetousabledisk=prevqueuenametonodetodifferentusabledisk[queuename]
+            else:
+                prevnodetousabledisk=InitializeEmptyResourceDic(nodetodifferentusabledisk)
+
+            if queuename in prevqueuenametonodetodifferentcardcount.keys():
+                prevnodetocardcount=prevqueuenametonodetodifferentcardcount[queuename]
+            else:
+                prevnodetocardcount=InitializeEmptyResourceDic(nodetodifferentcardcount)
+
+            for node, differentusableproc in nodetodifferentusableproc.items():
+                differentusabledisk=str(nodetodifferentusabledisk[node])
+                differentcardcount=str(nodetodifferentcardcount[node])
+                differentusableram=str(nodetodifferentusableram[node])
+                prevusableproc=str(prevnodetousableproc[node])
+                prevusableram=str(prevnodetousableram[node])
+                prevusabledisk=str(prevnodetousabledisk[node])
+                prevcardcount=str(prevnodetocardcount[node])
+                differentusableproc=str(differentusableproc)
+                diskresources=[prevusabledisk,differentusabledisk]
+                ramresources=[prevusableram,differentusableram]
+                procresources=[prevusableproc,differentusableproc]
+                cardresources=[prevcardcount,differentcardcount]
+                diskmsg=GenerateMessage(diskresources,'disk',username,node,queuename)
+                rammsg=GenerateMessage(diskresources,'ram',username,node,queuename)
+                procmsg=GenerateMessage(procresources,'proc',username,node,queuename)
+                cardmsg=GenerateMessage(cardresources,'card',username,node,queuename)
+                allowedgpuusernames=nodetoallowedgpuusernames[node]
+                prevallowedgpuusernames=prevnodetoallowedgpuusernames[node]
+                gpumsg=GenerateUsernameMessage([prevallowedgpuusernames,allowedgpuusernames],'GPU',node)
+                allowedcpuusernames=nodetoallowedcpuusernames[node]
+                prevallowedcpuusernames=prevnodetoallowedcpuusernames[node]
+                cpumsg=GenerateUsernameMessage([prevallowedcpuusernames,allowedcpuusernames],'CPU',node)
+                msg=''
+                if gpumsg!='':
+                    msg+=gpumsg
+                if cpumsg!='':
+                    msg+=cpumsg
+                if diskmsg!='':
+                    msg+=diskmsg        
+                if rammsg!='':
+                    msg+=rammsg        
+                if procmsg!='':
+                    msg+=procmsg        
+                if cardmsg!='':
+                    msg+=cardmsg
+                thetime=str(timetokillworkers/60)
+                msg+='Will wait '+thetime+' minutes, before killing work_queue_workers and restarting with new resource allocation'+'\n'
+                email=usernametoemail[username]
+                msgtoemail[msg]=email
     
 
-    return change,usernametonodetodifferentusableresource
+            
 
 
-
-
-def FindDifferentUsernameNodes(differentusernametonodelist,usernametonodetodifferentusableresource):
-    for username,nodetodifferentusableresource in usernametonodetodifferentusableresource.items():
-        for node,usableresource in nodetodifferentusableresource.items():
-            if username not in differentusernametonodelist.keys():
-                differentusernametonodelist[username]=[]
-            if node not in differentusernametonodelist[username]:
-                differentusernametonodelist[username].append(node)
-
-    return differentusernametonodelist
-
-def FindDifferentUsernameNodesAllDics(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount):
-    differentusernametonodelist={}
-    differentusernametonodelist=FindDifferentUsernameNodes(differentusernametonodelist,usernametonodetodifferentusableproc)
-    differentusernametonodelist=FindDifferentUsernameNodes(differentusernametonodelist,usernametonodetodifferentusableram)
-    differentusernametonodelist=FindDifferentUsernameNodes(differentusernametonodelist,usernametonodetodifferentusabledisk)
-    differentusernametonodelist=FindDifferentUsernameNodes(differentusernametonodelist,usernametonodetodifferentcardcount)
-
-    return differentusernametonodelist
-
-
-
-def AddUnchangedResources(usernametonodetodifferentresource,usernametonodetoresource,differentusernametonodelist):
-    for username,nodelist in differentusernametonodelist.items():
-        nodetoresource=usernametonodetoresource[username]
-        for node in nodelist:
-            resource=nodetoresource[node]
-            if username not in usernametonodetodifferentresource.keys():
-                usernametonodetodifferentresource[username]={}
-            if node not in usernametonodetodifferentresource[username].keys():
-                usernametonodetodifferentresource[username][node]=resource 
-
-
-    return usernametonodetodifferentresource
-
-
-def AddUnchangedResourcesOnSameNodeAsChangedResource(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount):
-
-    differentusernametonodelist=FindDifferentUsernameNodesAllDics(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount)
-    usernametonodetodifferentusableproc=AddUnchangedResources(usernametonodetodifferentusableproc,usernametonodetousableproc,differentusernametonodelist)
-    usernametonodetodifferentusableram=AddUnchangedResources(usernametonodetodifferentusableram,usernametonodetousableram,differentusernametonodelist)
-    usernametonodetodifferentusabledisk=AddUnchangedResources(usernametonodetodifferentusabledisk,usernametonodetousabledisk,differentusernametonodelist)
-    usernametonodetodifferentcardcount=AddUnchangedResources(usernametonodetodifferentcardcount,usernametonodetocardcount,differentusernametonodelist)
-
-    return usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist
-
-
-def SendEmails(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword):
-    msgtoemail={}
-    for username, nodetodifferentusableproc in usernametonodetodifferentusableproc.items():
-        nodetodifferentusableram=usernametonodetodifferentusableram[username]
-        nodetodifferentusabledisk=usernametonodetodifferentusabledisk[username]
-        nodetodifferentcardcount=usernametonodetodifferentcardcount[username]
-        prevnodetousableproc=prevusernametonodetousableproc[username]
-        prevnodetousableram=prevusernametonodetousableram[username]
-        prevnodetousabledisk=prevusernametonodetousabledisk[username]
-        prevnodetocardcount=prevusernametonodetocardcount[username]
-        for node, differentusableproc in nodetodifferentusableproc.items():
-            differentusabledisk=str(nodetodifferentusabledisk[node])
-            differentcardcount=str(nodetodifferentcardcount[node])
-            differentusableram=str(nodetodifferentusableram[node])
-            prevusableproc=str(prevnodetousableproc[node])
-            prevusableram=str(prevnodetousableram[node])
-            prevusabledisk=str(prevnodetousabledisk[node])
-            prevcardcount=str(prevnodetocardcount[node])
-            differentusableproc=str(differentusableproc)
-            diskresources=[prevusabledisk,differentusabledisk]
-            ramresources=[prevusableram,differentusableram]
-            procresources=[prevusableproc,differentusableproc]
-            cardresources=[prevcardcount,differentcardcount]
-            diskmsg=GenerateMessage(diskresources,'disk',username,node)
-            rammsg=GenerateMessage(diskresources,'ram',username,node)
-            procmsg=GenerateMessage(procresources,'proc',username,node)
-            cardmsg=GenerateMessage(cardresources,'card',username,node)
-            allowedgpuusernames=nodetoallowedgpuusernames[node]
-            prevallowedgpuusernames=prevnodetoallowedgpuusernames[node]
-            gpumsg=GenerateUsernameMessage([prevallowedgpuusernames,allowedgpuusernames],'GPU',node)
-            allowedcpuusernames=nodetoallowedcpuusernames[node]
-            prevallowedcpuusernames=prevnodetoallowedcpuusernames[node]
-            cpumsg=GenerateUsernameMessage([prevallowedcpuusernames,allowedcpuusernames],'CPU',node)
-            msg=''
-            if gpumsg!='':
-                msg+=gpumsg
-            if cpumsg!='':
-                msg+=cpumsg
-            if diskmsg!='':
-                msg+=diskmsg        
-            if rammsg!='':
-                msg+=rammsg        
-            if procmsg!='':
-                msg+=procmsg        
-            if cardmsg!='':
-                msg+=cardmsg
-            thetime=str(timetokillworkers/60)
-            msg+='Will wait '+thetime+' minutes, before killing work_queue_workers and restarting with new resource allocation'+'\n'
-            email=usernametoemail[username]
-            msgtoemail[msg]=email
     emailtomsg={}
     for msg,email in msgtoemail.items():
         if email not in emailtomsg.keys():
@@ -633,12 +733,12 @@ def SendReportEmail(TEXT,fromaddr,toaddr,password):
 
   
 
-def GenerateMessage(resources,string,username,node):
+def GenerateMessage(resources,string,username,node,queuename):
     msg=''
     prevresource=resources[0]
     newresource=resources[1]
     if prevresource!=newresource:
-        msg+='Previous '+string+' resource allocation for '+username+' '+'on node '+node+' '+'was '+prevresource+' , new allocation is '+newresource+'\n'
+        msg+='Previous '+string+' resource allocation for '+username+' '+'on '+node+' '+'for queue '+queuename+' was '+prevresource+' , new allocation is '+newresource+'\n'
 
     return msg
 
@@ -653,41 +753,51 @@ def GenerateUsernameMessage(usernamelist,string,node):
 
     return msg
 
-def DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword):
+def DetectResourceAllocationChange(usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,prevusernametoqueuenametonodetousableproc,prevusernametoqueuenametonodetousableram,prevusernametoqueuenametonodetousabledisk,prevusernametoqueuenametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword,usernametoqueuenametoqueue,nodetocardtype):
     detectresourceallocationchange=False
-    changeproc,usernametonodetodifferentusableproc=DetectResourceChange(usernametonodetousableproc,prevusernametonodetousableproc)
-    changeram,usernametonodetodifferentusableram=DetectResourceChange(usernametonodetousableram,prevusernametonodetousableram)
-    changedisk,usernametonodetodifferentusabledisk=DetectResourceChange(usernametonodetousabledisk,prevusernametonodetousabledisk)
-    changecardcount,usernametonodetodifferentcardcount=DetectResourceChange(usernametonodetocardcount,prevusernametonodetocardcount)
-    usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=AddUnchangedResourcesOnSameNodeAsChangedResource(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount)
+    changeproc,usernametoqueuenametonodetodifferentusableproc=DetectResourceChange(usernametoqueuenametonodetousableproc,prevusernametoqueuenametonodetousableproc,nodetocardtype)
+    changeram,usernametoqueuenametonodetodifferentusableram=DetectResourceChange(usernametoqueuenametonodetousableram,prevusernametoqueuenametonodetousableram,nodetocardtype)
+    changedisk,usernametoqueuenametonodetodifferentusabledisk=DetectResourceChange(usernametoqueuenametonodetousabledisk,prevusernametoqueuenametonodetousabledisk,nodetocardtype)
+    changecardcount,usernametoqueuenametonodetodifferentcardcount=DetectResourceChange(usernametoqueuenametonodetocardcount,prevusernametoqueuenametonodetocardcount,nodetocardtype)
+    usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,differentusernametoqueuenametonodelist=AddUnchangedResourcesOnSameNodeAsChangedResource(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount)
     if changeproc==True or changeram==True or changedisk==True or changecardcount==True:
         detectresourceallocationchange=True  
     if detectresourceallocationchange==True:
-        SendEmails(usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
-
-    return detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist
+        SendEmails(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,prevusernametoqueuenametonodetousableproc,prevusernametoqueuenametonodetousableram,prevusernametoqueuenametonodetousabledisk,prevusernametoqueuenametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
 
 
-def FindWorkerPIDSToKill(differentusernametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames):
-    workerpidstokill=[]
-    for username, nodelist in differentusernametonodelist.items():
+
+    return detectresourceallocationchange,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,differentusernametoqueuenametonodelist
+
+
+def FindWorkerPIDSToKill(differentusernametoqueuenametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames):
+    nodetoworkerpidstokill={}
+    for username,queuenametonodelist in differentusernametoqueuenametonodelist.items():
         queuenametonodetoworkerpid=usernametoqueuenametonodetoworkerpid[username]
-        for queuename, nodetoworkerpid in queuenametonodetoworkerpid.items():
-            for node in nodelist:
-                pid=nodetoworkerpid[node]
-                workerpidstokill.append(pid)
-                del usernametoqueuenametonodetoworkerpid[username][queuename][node]
-                string='Killing work_queue_worker for username '+username+'  on node '+node +' for queuename '+queuename
-                usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
+        for queuename, nodelist in queuenametonodelist.items():
+            if queuename in queuenametonodetoworkerpid.keys():
+                nodetoworkerpid=queuenametonodetoworkerpid[queuename]
+                for node in nodelist:
+                    pid=nodetoworkerpid[node]
+                    if node not in nodetoworkerpidstokill.keys():
+                        nodetoworkerpidstokill[node]=[]
+                    nodetoworkerpidstokill[node].append(pid)
+                    del usernametoqueuenametonodetoworkerpid[username][queuename][node]
+                    string='Killing work_queue_worker for username '+username+'  on node '+node +' for queuename '+queuename
+                    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
 
 
-    return workerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames
+    return nodetoworkerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames
 
 
-def KillWorkers(workerpidstokill):
-    for pid in workerpidstokill:
-        os.kill(pid, signal.SIGTERM)
-    
+def KillWorkers(nodetoworkerpidstokill):
+    for node,pidlist in nodetoworkerpidstokill.items():
+        for pid in pidlist:
+            cmdstr='kill -9 '+str(pid)
+            cmdstr = 'ssh %s "%s"' %(str(node),cmdstr)
+            print(cmdstr,flush=True)
+            process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+
 
 def WriteToAllQueuesAllUsers(usernametoqueuenametologgers,string,usernametoqueuenametolognames,index):
     for username,queuenametologgers in usernametoqueuenametologgers.items():
@@ -698,27 +808,109 @@ def WriteToAllQueuesAllUsers(usernametoqueuenametologgers,string,usernametoqueue
 
     return usernametoqueuenametologgers
 
-def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber):
-    
+
+def SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue):
+    for username,queuenametoqueue in usernametoqueuenametoqueue.items():
+        if username not in usernametoqueuenametonodetocardcount.keys():
+            usernametoqueuenametonodetocardcount[username]={}
+        if username not in usernametoqueuenametonodetousableproc.keys():
+            usernametoqueuenametonodetousableproc[username]={}
+        if username not in usernametoqueuenametonodetousableram.keys():
+            usernametoqueuenametonodetousableram[username]={}
+        if username not in usernametoqueuenametonodetousabledisk.keys():
+            usernametoqueuenametonodetousabledisk[username]={}
+        nodetocardcount=usernametonodetocardcount[username]
+        nodetousableproc=usernametonodetousableproc[username]
+        nodetousableram=usernametonodetousableram[username]
+        nodetousabledisk=usernametonodetousabledisk[username]
+        queuenametocardtype={}
+        for queuename in queuenametoqueue.keys():
+            for node,cardtype in nodetocardtype.items():
+                if cardtype in queuename:
+                    queuenametocardtype[queuename]=cardtype
+        maingpuqueuename=username+'_'+'maingpuqueue'
+        if maingpuqueuename not in usernametoqueuenametonodetocardcount[username].keys():
+            usernametoqueuenametonodetocardcount[username][maingpuqueuename]={}
+
+        for queuename,cardtype in queuenametocardtype.items():
+            if queuename not in usernametoqueuenametonodetocardcount[username].keys():
+                usernametoqueuenametonodetocardcount[username][queuename]={}
+            nodes=[]
+            for node,othercardtype in nodetocardtype.items():
+                if othercardtype==cardtype:
+                    nodes.append(node)
+            for node in nodes:
+                cardcount=nodetocardcount[node]
+                usernametoqueuenametonodetocardcount[username][queuename][node]=cardcount
+                usernametoqueuenametonodetocardcount[username][maingpuqueuename][node]=0
+        for node,cardcount in nodetocardcount.items():
+            usernametoqueuenametonodetocardcount[username][maingpuqueuename][node]=cardcount
+
+
+        if maingpuqueuename not in usernametoqueuenametonodetousableproc[username].keys():
+            usernametoqueuenametonodetousableproc[username][maingpuqueuename]={}
+        if maingpuqueuename not in usernametoqueuenametonodetousableram[username].keys():
+            usernametoqueuenametonodetousableram[username][maingpuqueuename]={}
+        if maingpuqueuename not in usernametoqueuenametonodetousabledisk[username].keys():
+            usernametoqueuenametonodetousabledisk[username][maingpuqueuename]={}
+        if maingpuqueuename not in usernametoqueuenametonodetocardcount[username].keys():
+            usernametoqueuenametonodetocardcount[username][maingpuqueuename]={}
+
+
+        maincpuqueuename=username+'_'+'maincpuqueue'
+        if maincpuqueuename not in usernametoqueuenametonodetousableproc[username].keys():
+            usernametoqueuenametonodetousableproc[username][maincpuqueuename]={}
+        if maincpuqueuename not in usernametoqueuenametonodetousableram[username].keys():
+            usernametoqueuenametonodetousableram[username][maincpuqueuename]={}
+        if maincpuqueuename not in usernametoqueuenametonodetousabledisk[username].keys():
+            usernametoqueuenametonodetousabledisk[username][maincpuqueuename]={}
+        if maincpuqueuename not in usernametoqueuenametonodetocardcount[username].keys():
+            usernametoqueuenametonodetocardcount[username][maincpuqueuename]={}
+        for node,usableproc in nodetousableproc.items():
+            usernametoqueuenametonodetousableproc[username][maincpuqueuename][node]=usableproc
+            usernametoqueuenametonodetousableproc[username][maingpuqueuename][node]=2
+
+        for node,usableram in nodetousableram.items():
+            usernametoqueuenametonodetousableram[username][maincpuqueuename][node]=usableram
+            usernametoqueuenametonodetousableram[username][maingpuqueuename][node]=100
+
+        for node,usabledisk in nodetousabledisk.items():
+            usernametoqueuenametonodetousabledisk[username][maincpuqueuename][node]=usabledisk
+            usernametoqueuenametonodetousabledisk[username][maingpuqueuename][node]=usabledisk
+
+        for node,cardcount in nodetocardcount.items():
+            usernametoqueuenametonodetocardcount[username][maincpuqueuename][node]=0
+
+    return usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount
+
+
+def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames):
+    detectresourceallocationchange=False
+    timedetectedchange=None
+    usernametonodetoqueuenametodifferentusableproc={}
+    usernametonodetoqueuenametodifferentusableram={}
+    usernametonodetoqueuenametodifferentusabledisk={}
+    usernametonodetoqueuenametodifferentcardcount={}
+    differentusernametoqueuenametonodelist={}
+    prevusernametoqueuenametonodetousableproc=copy.deepcopy(usernametoqueuenametonodetousableproc)
+    prevusernametoqueuenametonodetousableram=copy.deepcopy(usernametoqueuenametonodetousableram)
+    prevusernametoqueuenametonodetousabledisk=copy.deepcopy(usernametoqueuenametonodetousabledisk)
+    prevusernametoqueuenametonodetocardcount=copy.deepcopy(usernametoqueuenametonodetocardcount)
+    prevnodetoallowedgpuusernames=copy.deepcopy(nodetoallowedgpuusernames)
+    prevnodetoallowedcpuusernames=copy.deepcopy(nodetoallowedcpuusernames)
     while True:
         time.sleep(5)
         breakout=False
-        usernames=list(usernametoqueuenametoqueue.keys())
-        nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
-        ReadSheetsUpdateFile(usernames,nodelistfilepath)
+        success=ReadSheetsUpdateFile(usernames,nodelistfilepath)
+        nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
+        usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
         jobinfo={}
-        jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)
+        jobinfo,foundinputjobs=CheckForInputJobs(jobinfo,usernametoqueuenametologgers,usernametoqueuenametolognames)
         if foundinputjobs==True:
-            usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag=SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag)
+            usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber)
+            usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need another one here just in case user wants GPU card type queue
         if detectresourceallocationchange==False: 
-            try:
-                detectresourceallocationchange,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist=DetectResourceAllocationChange(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,prevusernametonodetousableproc,prevusernametonodetousableram,prevusernametonodetousabledisk,prevusernametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword)
-            except:
-                traceback.print_exc(file=sys.stdout)
-                text = str(traceback.format_exc())
-                print(text,flush=True)
-
-
+            detectresourceallocationchange,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,differentusernametoqueuenametonodelist=DetectResourceAllocationChange(usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,prevusernametoqueuenametonodetousableproc,prevusernametoqueuenametonodetousableram,prevusernametoqueuenametonodetousabledisk,prevusernametoqueuenametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword,usernametoqueuenametoqueue,nodetocardtype)
             if detectresourceallocationchange==True:
                 timedetectedchange=time.time()
 
@@ -726,14 +918,21 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
             currenttime=time.time()
             diff=(currenttime-timedetectedchange)
             if diff>=timetokillworkers: 
-                workerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames=FindWorkerPIDSToKill(differentusernametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames)
-                KillWorkers(workerpidstokill)
-                usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
+                nodetoworkerpidstokill,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames=FindWorkerPIDSToKill(differentusernametoqueuenametonodelist,usernametoqueuenametonodetoworkerpid,usernametoqueuenametologgers,usernametoqueuenametolognames)
+                KillWorkers(nodetoworkerpidstokill)
+                usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
                 timedetectedchange=None
                 detectresourceallocationchange=False
 
-        random.shuffle(usernames) # this ensures you dont get stuck serviving only one username until their queue is empty
-        for username in usernames:
+                prevusernametoqueuenametonodetousableproc=copy.deepcopy(usernametoqueuenametonodetousableproc)
+                prevusernametoqueuenametonodetousableram=copy.deepcopy(usernametoqueuenametonodetousableram)
+                prevusernametoqueuenametonodetousabledisk=copy.deepcopy(usernametoqueuenametonodetousabledisk)
+                prevusernametoqueuenametonodetocardcount=copy.deepcopy(usernametoqueuenametonodetocardcount)
+                prevnodetoallowedgpuusernames=copy.deepcopy(nodetoallowedgpuusernames)
+                prevnodetoallowedcpuusernames=copy.deepcopy(nodetoallowedcpuusernames)
+
+        random.shuffle(queueusernames) # this ensures you dont get stuck serviving only one username until their queue is empty
+        for username in queueusernames:
             if breakout==True:
                 break
             queuenametoqueue=usernametoqueuenametoqueue[username]
@@ -810,18 +1009,18 @@ def WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
     jobinfo={}
     foundinputjobs=False
     while foundinputjobs==False:
-        jobinfo,foundinputjobs=CheckForInputJobs(jobinfo)   
+        jobinfo,foundinputjobs=CheckForInputJobs(jobinfo,usernametoqueuenametologgers,usernametoqueuenametolognames)   
         time.sleep(5)
     return jobinfo,usernametoqueuenametologgers
 
-def CheckForInputJobs(jobinfo):
+def CheckForInputJobs(jobinfo,usernametoqueuenametologgers,usernametoqueuenametolognames):
     files=os.listdir()
     array=[]
     foundinputjobs=False
     for f in files:
         if 'submit.' in f:
             foundinputjobs=True
-            jobinfo=ReadJobInfoFromFile(jobinfo,f)
+            jobinfo=ReadJobInfoFromFile(jobinfo,f,usernametoqueuenametologgers,usernametoqueuenametolognames)
             array.append(f)
     for f in array:
         os.remove(f)
@@ -927,13 +1126,16 @@ def ReadSheets():
 
 
 def ReadSheetsUpdateFile(usernames,nodetopology):
+    success=False
     try:
         gpunodetousername,cpunodetousername=ReadSheets()
-        WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames) 
+        WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames)
+        success=True 
     except:
         traceback.print_exc(file=sys.stdout)
         text = str(traceback.format_exc())
         print(text,flush=True)
+    return success
 
 
 def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetousername,usernames):
@@ -947,28 +1149,27 @@ def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetouser
             card=linesplit[0]
             linesplit=linesplit[:8+1]
             line=' '.join(linesplit)
-            anyuser=False
+            nouser=False
             if card in gpunodetousername.keys():
                 gpuusername=gpunodetousername[card]
                 if gpuusername in usernames:
                     pass
                 else:
-                    anyuser=True
-            if anyuser==True:
-                gpuusername='ANYUSER'
-            anyuser=False
+                    nouser=True
+            if nouser==True:
+                gpuusername='NOUSER'
+            nouser=False
             if card in cpunodetousername.keys():
                 cpuusername=cpunodetousername[card]
                 if cpuusername in usernames:
                     pass
                 else:
-                    anyuser=True
-            if anyuser==True:
-                cpuusername='ANYUSER'
+                    nouser=True
+            if nouser==True:
+                cpuusername='NOUSER'
             line=line.replace('\n','')+' '+cpuusername+' '+gpuusername+'\n'
         temp.write(line)
     temp.close()
-
 
 
 def SetupLogger(log_file, level=logging.INFO):
@@ -1014,54 +1215,36 @@ def ReadUsernameList(usernamelist):
 
     return usernames,usernametoemail
 
-  
 
-def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
+def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist):
+    
     import work_queue as wq
-    if os.path.isfile(pidfile):
-        raise ValueError('Daemon instance is already running')
-
-    WritePIDFile(pidfile)
-    usernametoqueuenametotaskidtotasktag={}
-    usernametoqueuenametonodetoworkerpid={}
-    usernametoqueuenametoqueue={}
-    usernametoqueuenametotaskidtojob={}
-    usernametoqueuenametolognames={}
-    usernametoqueuenametoprojectname={}
-    usernametoqueuenametoportnumber={}
-    usernametoqueuenametologgers={}
-    usernametoqueuenametopassword={}
-    usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
-    if username!=None:
-        usernames=[username]
-    if usernames==None and runallusers==False:
-        raise ValueError(' please enter username or add option --runallusers ')
     portnumber=startingportnumber
-    usernametoqueuenametotaskidtooutputfilepathslist={}
-    usernametoqueuenametotaskidtoinputline={}
-    for username in usernames:
-        if not os.path.isdir(username):
-            os.mkdir(username)
-        os.chdir(username)
-        files=os.listdir()
-        for f in files:
-            if '.log' in f:
-                os.remove(f)
-
-        os.chdir('..')
+    if username not in usernametoqueuenametotaskidtotasktag.keys():
         usernametoqueuenametotaskidtotasktag[username]={}
+    if username not in usernametoqueuenametonodetoworkerpid.keys():
         usernametoqueuenametonodetoworkerpid[username]={}
+    if username not in usernametoqueuenametonodetoworkerpid.keys():
         usernametoqueuenametonodetoworkerpid[username]={}
+    if username not in usernametoqueuenametoqueue.keys():
         usernametoqueuenametoqueue[username]={}
+    if username not in usernametoqueuenametotaskidtoinputline.keys():
         usernametoqueuenametotaskidtoinputline[username]={}
+    if username not in usernametoqueuenametotaskidtooutputfilepathslist.keys():
         usernametoqueuenametotaskidtooutputfilepathslist[username]={}
+    if username not in usernametoqueuenametotaskidtojob.keys():
         usernametoqueuenametotaskidtojob[username]={}
+    if username not in usernametoqueuenametolognames.keys():
         usernametoqueuenametolognames[username]={}
+    if username not in usernametoqueuenametoprojectname.keys():
         usernametoqueuenametoprojectname[username]={}
+    if username not in usernametoqueuenametoportnumber.keys():
         usernametoqueuenametoportnumber[username]={}
+    if username not in usernametoqueuenametologgers.keys():
         usernametoqueuenametologgers[username]={}
+    if username not in usernametoqueuenametopassword.keys():
         usernametoqueuenametopassword[username]={}
-        mainqueuename=username+'_'+'mainqueue'
+    for mainqueuename in queuenamelist:
         queuelogname=os.path.join(username,mainqueuename+'_'+queueloggerfile)
         errorlogname=os.path.join(username,mainqueuename+'_'+errorloggerfile)
         queuelogger=SetupLogger(queuelogname)
@@ -1086,25 +1269,76 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
         usernametoqueuenametoqueue[username][mainqueuename]=queue
         portnumber+=1
         usernametoqueuenametotaskidtotasktag[username][mainqueuename]={}
+    startingportnumber=portnumber+1
 
-    detectresourceallocationchange=False
-    timedetectedchange=None
-    usernametonodetodifferentusableproc={}
-    usernametonodetodifferentusableram={}
-    usernametonodetodifferentusabledisk={}
-    usernametonodetodifferentcardcount={}
-    differentusernametonodelist={}
+
+    return usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist
+  
+
+def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
+    if os.path.isfile(pidfile):
+        raise ValueError('Daemon instance is already running')
+
+    WritePIDFile(pidfile)
+    usernametoqueuenametotaskidtotasktag={}
+    usernametoqueuenametonodetoworkerpid={}
+    usernametoqueuenametoqueue={}
+    usernametoqueuenametotaskidtojob={}
+    usernametoqueuenametolognames={}
+    usernametoqueuenametoprojectname={}
+    usernametoqueuenametoportnumber={}
+    usernametoqueuenametologgers={}
+    usernametoqueuenametopassword={}
+    usernametoqueuenametonodetousableproc={}
+    usernametoqueuenametonodetousableram={}
+    usernametoqueuenametonodetousabledisk={}
+    usernametoqueuenametonodetocardcount={}
+    usernametoqueuenametotaskidtooutputfilepathslist={}
+    usernametoqueuenametotaskidtoinputline={}
+    usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
+    if username!=None:
+        queueusernames=[username]
+    else:
+        queueusernames=usernames[:]
+    if usernames==None and runallusers==False:
+        raise ValueError(' please enter username or add option --runallusers ')
+    
+    for username in queueusernames:
+        if not os.path.isdir(username):
+            os.mkdir(username)
+        os.chdir(username)
+        files=os.listdir()
+        for f in files:
+            if '.log' in f:
+                os.remove(f)
+
+        os.chdir('..')
+        queuenamelist=[username+'_'+'maincpuqueue',username+'_'+'maingpuqueue']
+        usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist)
+
+        
+
+    
+    
 
     senderemail='renlabclusterreport@gmail.com'
     senderpassword='amoebaisbest'
-    nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames=ReadNodeList(nodelistfilepath,usernames)
-    jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
-    ReadSheetsUpdateFile(usernames,nodelistfilepath)
-    if startworkers==True:
-        usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
+    success=False
+    while success==False:
+        success=ReadSheetsUpdateFile(usernames,nodelistfilepath)
+        time.sleep(5)
+    nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
+    usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
+
     
-    usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag=SubmitToQueue(jobinfo,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag)
-    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,detectresourceallocationchange,timetokillworkers,timedetectedchange,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametonodetodifferentusableproc,usernametonodetodifferentusableram,usernametonodetodifferentusabledisk,usernametonodetodifferentcardcount,differentusernametonodelist,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber)
+    
+    if startworkers==True:
+        usernametoqueuenametologgers,usernametoqueuenametonodetoworkerpid=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkerpid)
+
+    jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
+    usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber)
+    usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need one here just in case user wants card type GPU queue
+    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkerpid,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames)
     return usernametoqueuenametologgers,usernametoqueuenametolognames
 
 

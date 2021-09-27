@@ -24,5 +24,7 @@ def KillSignal(cpunodes,killstring):
 
 
 cpunodes=ReadCPUNodes(cpunodepath)
+killstring='cd /scratch/bdw2292/ ; find . -mtime +3 | xargs rm -r '
+KillSignal(cpunodes,killstring)
 killstring="pkill -U bdw2292"
 KillSignal(cpunodes,killstring)

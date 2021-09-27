@@ -347,11 +347,12 @@ def CheckScratchSpace(node):
     output=CheckOutputFromExternalNode(node,cmdstr)
     if output!=False:
         lines=output.split('\n')[1:-1]
+
         d={}
         for line in lines:
             linesplit=line.split()
             if len(linesplit)==5 or len(linesplit)==6:
-                avail = re.split('\s+', line)[3]
+                avail = re.split('\s+', line)[1]
                 mount = re.split('\s+', line)[5]
                 d[mount] = avail
         if '/scratch' in d.keys(): 
