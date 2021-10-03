@@ -45,6 +45,8 @@ conda install tqdm --yes
 conda install -c anaconda packaging --yes
 conda install -c conda-forge ndcctools --yes
 conda install -c anaconda dill --yes
+conda install -c conda-forge gspread --yes
+conda install -c conda-forge tqdm --yes
 
 ```
 

@@ -167,4 +167,5 @@ nohup python pingnodes.py --monitorresourceusage &
 * If the current manager does not have a backup manager running, submit the updated manager.py in backup mode. Then kill the primary manager (PID in daemon.pid), and remove the daemon.pid file. This will cause the updated manager in backup mode to become the primary manager. Then add another manager in backup mode.
 
 ## Todo
+* Seperate the CPU disk and GPU disk resources, otherwise everytime CPU resource changes, since they share the same disk, then daemon detects change in GPU disk resource and kill CPU and GPU worker
 * Parse /opt/quota.sun and /opt/quota.nova.home, then report if quota is getting close to filling (send emails and log information)
