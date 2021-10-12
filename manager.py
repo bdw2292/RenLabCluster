@@ -146,19 +146,19 @@ def ReadNodeList(nodelistfilepath,usernames):
                 proc=str(int(int(proc)*coreconsumratio))
                 lowproc=str(int(int(proc)*lowconsumratio))
             else:
-                lowproc=proc
+                lowproc=0
             
             if ram!='UNK':
                 ram=str(int(int(ram)*ramconsumratio))
                 lowram=str(int(int(ram)*lowconsumratio))
             else:
-                lowram=ram
+                lowram=0
 
             if scratch!='UNK':
                 scratch=str(int(int(scratch)*diskconsumratio))
                 lowscratch=str(int(int(scratch)*lowconsumratio))
             else:
-                lowscratch=scratch
+                lowscratch=0
 
 
             nodetousableram[node]=ram
