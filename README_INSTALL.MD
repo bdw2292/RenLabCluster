@@ -141,12 +141,15 @@ else
     export PATH=/home/bdw2292/NewestTinker/bin/:$PATH
 fi
 
+export myusername=`whoami`
 conda activate amoebamdpoltype
 export g09root=/opt/g09gh/gaussian
 source $g09root/g09/bsd/g09.profile
-export GAUSS_SCRDIR=/scratch/bdw2292/
+export GAUSS_SCRDIR=/scratch/$myusername/
 export GDMADIR=/opt/gdma/gdma-2.3.3/bin/
 export PATH=/opt/gdma/gdma-2.3.3/bin/:$PATH
-export PSI_SCRATCH=/scratch/bdw2292/
+export PSI_SCRATCH=/scratch/$myusername/
+
+
 ```
 
