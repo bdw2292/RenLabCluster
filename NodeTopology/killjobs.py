@@ -28,3 +28,10 @@ killstring='cd /scratch/bdw2292/ ; find . -mtime +3 | xargs rm -r '
 KillSignal(cpunodes,killstring)
 killstring="pkill -U bdw2292"
 KillSignal(cpunodes,killstring)
+Killstring="ps aux | grep bdw2292 | grep python | grep amoeba | awk '{ print $2 }' | xargs pwdx | xargs kill -9"
+KillSignal(cpunodes,killstring)
+Killstring="ps aux | grep bdw2292 | grep python | grep poltype.py | awk '{ print $2 }' | xargs pwdx| xargs kill -9"
+KillSignal(cpunodes,killstring)
+Killstring="ps aux | grep bdw2292 | grep work_queue_worker | awk '{ print $2 }' | xargs pwdx| xargs kill -9"
+KillSignal(cpunodes,killstring)
+

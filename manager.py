@@ -243,6 +243,10 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
         cmdstr+=' '+'--cores '+str(proc)
     if ram!='UNK':
         cmdstr+=' '+'--memory '+str(ram)
+    callworker=True
+    print('queuename',queuename,'cardcount',cardcount,'node',node,type(cardcount),flush=True)
+    if 'gpu' in queuename and cardcount==str(0):
+        callworker=False
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
@@ -252,10 +256,11 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     mkdirstring='mkdir '+fullworkdir+' ; '
     cmdstr=mkdirstring+cmdstr
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
-    cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
-    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Calling: '+cmdstr,usernametoqueuenametolognames[username][queuename],0)
-    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
-    usernametoqueuenametonodetoworkercmdstr[username][queuename][node]=firstcmdstr
+    if callworker==True:
+        cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
+        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Calling: '+cmdstr,usernametoqueuenametolognames[username][queuename],0)
+        process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+        usernametoqueuenametonodetoworkercmdstr[username][queuename][node]=firstcmdstr
     return usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr
 
 def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr):
