@@ -244,7 +244,6 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     if ram!='UNK':
         cmdstr+=' '+'--memory '+str(ram)
     callworker=True
-    print('queuename',queuename,'cardcount',cardcount,'node',node,type(cardcount),flush=True)
     if 'gpu' in queuename and cardcount==str(0):
         callworker=False
     cmdstr+=' '+'--gpus '+str(cardcount)

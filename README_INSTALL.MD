@@ -13,10 +13,10 @@ conda env create -f clusterenv.yml
 ```
 conda create --name clusterenv --yes
 conda activate clusterenv
-conda install -c conda-forge ndcctools --yes
-conda install -c anaconda dill --yes
-conda install -c conda-forge gspread --yes
-conda install -c conda-forge tqdm --yes
+conda install -c conda-forge ndcctools=7.3.5 --yes
+conda install -c anaconda dill=0.3.2 --yes
+conda install -c conda-forge gspread=4.0.1 --yes
+conda install -c conda-forge tqdm=4.62.3 --yes
 ```
 
 
@@ -29,24 +29,23 @@ conda env create -f amoebamdpoltype.yml
 * Manual install
 ```
 conda deactivate
-conda create -n amoebamdpoltype python=3.6 psi4=1.3.2+ecbda83 -c psi4 --yes
+conda create -n amoebamdpoltype python=3.7 psi4=1.4.1+cd00f19 -c psi4 --yes
 conda activate amoebamdpoltype
-conda install scipy --yes
-conda install matplotlib --yes
+conda install scipy=1.7.1 --yes
+conda install matplotlib=3.4.3 --yes
 conda install -c conda-forge openbabel=2.4.1 --yes
-conda install git pip --yes
-conda install -c conda-forge rdkit --yes
-conda install -c conda-forge mdanalysis --yes
-conda install -c conda-forge svgutils --yes
-conda install -c conda-forge cairosvg --yes
-conda install -c conda-forge pymbar --yes
-conda install -c conda-forge mdtraj --yes
-conda install tqdm --yes
-conda install -c anaconda packaging --yes
-conda install -c conda-forge ndcctools --yes
-conda install -c anaconda dill --yes
-conda install -c conda-forge gspread --yes
-conda install -c conda-forge tqdm --yes
+conda install git pip=21.3.1 --yes
+conda install -c conda-forge rdkit=2021.09.2 --yes
+conda install -c conda-forge mdanalysis=2.0.0 --yes
+conda install -c conda-forge svgutils=0.3.4 --yes
+conda install -c conda-forge cairosvg=2.5.2 --yes
+conda install -c conda-forge pymbar=3.0.5 --yes
+conda install -c conda-forge mdtraj=1.9.6 --yes
+conda install -c anaconda packaging=20.4 --yes
+conda install -c conda-forge ndcctools=7.3.5 --yes
+conda install -c anaconda dill=0.3.2 --yes
+conda install -c conda-forge gspread=4.0.1 --yes
+conda install -c conda-forge tqdm=4.62.3 --yes
 
 ```
 
