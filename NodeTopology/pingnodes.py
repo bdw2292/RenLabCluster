@@ -18,8 +18,8 @@ monitorresourceusage=False
 usernametoemaillist='usernamestoemail.txt'
 senderemail='renlabclusterreport@gmail.com'
 senderpassword='amoebaisbest'
-
-opts, xargs = getopt.getopt(sys.argv[1:],'',['diskconsumptionratio=',"bashrcpath=",'coreconsumptionratio=','mincardtype=','ramconsumptionratio=','monitorresourceusage'])
+path='/home/bdw2292/public_html/'
+opts, xargs = getopt.getopt(sys.argv[1:],'',['diskconsumptionratio=',"bashrcpath=",'coreconsumptionratio=','mincardtype=','ramconsumptionratio=','monitorresourceusage','path='])
 for o, a in opts:
     if o in ("--bashrcpath"):
         bashrcpath=a
@@ -33,13 +33,19 @@ for o, a in opts:
         mincardtype=int(a)
     elif o in ("--monitorresourceusage"):
         monitorresourceusage=True
+    elif o in ("--path"):
+        path=a
 
 
 def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist):
     activecpunodelist=[]
     activegpunodelist=[]
+    cpunodetousernametojobs={}
     for nodeidx in tqdm(range(len(nodelist)),desc='Checking active nodes'):
         node=nodelist[nodeidx]
+        if node not in cpunodetousernametojobs.keys():
+            cpunodetousernametojobs[node]={}
+
         activecards=[]
         if node in gpunodes:
             activecards=CheckWhichGPUCardsActive(node)
@@ -54,25 +60,29 @@ def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist):
         p = subprocess.Popen(job, stdout=subprocess.PIPE,shell=True)
         output, err = p.communicate()
         output=ConvertOutput(output)    
-
         if len(output)>1:
-            keepnode=False
-            cmdstr1='ps -p %s'%(output)
-            cmdstr2='ps -p %s'%(output)+' -u'
-            output1=CheckOutputFromExternalNode(node,cmdstr1)
-            output2=CheckOutputFromExternalNode(node,cmdstr2)
-            if type(output1)==str:
-                print(output1)
-            if type(output2)==str:
-                print(output2)
-
+            lines=output.split('\n')
+            for line in lines:
+                linesplit=line.split()
+                pid=linesplit[0] 
+                keepnode=False
+                cmdstr1='ps -p %s'%(pid)
+                cmdstr2='ps -p %s'%(pid)+' -u '+"| awk '{ print $1 }' | tail -n1"
+                output1=CheckOutputFromExternalNode(node,cmdstr1)
+                output2=CheckOutputFromExternalNode(node,cmdstr2)
+                if type(output1)==str and type(output2)==str:
+                    output2=output2.lstrip().rstrip()
+                    output2=output2.split()[0]
+                    if output2 not in cpunodetousernametojobs[node]:
+                        cpunodetousernametojobs[node][output2]=[]
+                    cpunodetousernametojobs[node][output2].append(output1)
             if len(activecards)!=0:
                 for card in activecards:
                     activecpunodelist.append(node+'-'+str(card))
             else:
                 activecpunodelist.append(node+'-'+str(0))
 
-    return activecpunodelist,activegpunodelist
+    return activecpunodelist,activegpunodelist,cpunodetousernametojobs
 
 
 def CheckWhichGPUCardsActive(node):
@@ -149,28 +159,31 @@ def ReadNodeTopology(nodelistfilepath):
             if len(linesplit)>=9+1:
                 cpuusername=linesplit[9]
             else:
-                cpuusername='ANYUSER'
+                cpuusername='NOUSER'
             if len(linesplit)>=10+1:
                 gpuusername=linesplit[10]
             else:
-                gpuusername='ANYUSER'
+                gpuusername='NOUSER'
 
             if card not in cpunodetousernames.keys():
                 cpunodetousernames[card]=[]
             if card not in gpunodetousernames.keys():
                 gpunodetousernames[card]=[]
-            if gpuusername=='ANYUSER':
-                pass
+            if gpuusername=='NOUSER':
+                gpunodetousernames[card]=[]
+
             else:
                 gpunodetousernames[card].append(gpuusername)
 
-            if cpuusername=='ANYUSER':
-                pass
+            if cpuusername=='NOUSER':
+                cpunodetousernames[card]=[]
             else:
                 cpunodetousernames[card].append(cpuusername)
 
 
     return cpunodelist,gpunodelist,cpucardlist,gpucardlist,cpunodetousernames,gpunodetousernames
+
+
  
 
 def ReadNodeList(nodelistfilepath):
@@ -179,6 +192,8 @@ def ReadNodeList(nodelistfilepath):
         temp=open(nodelistfilepath,'r')
         results=temp.readlines()
         for line in results:
+            if '#' in line:
+                continue
             linesplit=line.split()
             if len(linesplit)<1:
                 continue
@@ -306,7 +321,7 @@ def CheckOutputFromExternalNode(node,cmdstr):
     output=True
     job='ssh %s "%s"'%(node,cmdstr)
     try: # if it has output that means this process is running
-        output=subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True,timeout=10)
+        output=subprocess.check_output(job,stderr=subprocess.STDOUT,shell=True,timeout=20)
         output=ConvertOutput(output)
     except: #if it fails, that means no process with the program is running or node is dead/unreachable
          output=False
@@ -486,27 +501,43 @@ def UpdateTotalTime(nodesnonactivetototaltime,nodesnonactive,nodesnonactivetofir
     
     return nodesnonactivetototaltime,nodesnonactivetofirsttime,usernametomsgs
 
-def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,senderemail,senderpassword):
+def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,senderemail,senderpassword,path):
     cpunodesnonactivetototaltime={}
     cpucardsnonactivetofirsttime={}
     gpunodesnonactivetototaltime={}
     gpucardsnonactivetofirsttime={}
     while True:
+        fh=open(os.path.join(path,'clusterviolations.txt'),'w')
         usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
         usernametomsgs={}
         cpunodelist,gpunodelist,cpucardlist,gpucardlist,cpunodetousernames,gpunodetousernames=ReadNodeTopology(nodetopofilepath)
-        activecpunodelist,activegpunodelist=AlreadyActiveNodes(cpunodelist,gpunodelist,cpuprogramlist)
+        activecpunodelist,activegpunodelist,cpunodetousernametojobs=AlreadyActiveNodes(cpunodelist,gpunodelist,cpuprogramlist)
+        CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh)
         nonactivecpunodelist,nonactivegpunodelist=NonActiveNodes(cpucardlist,gpucardlist,activecpunodelist,activegpunodelist)
         gpunodesnonactivetototaltime,gpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(gpunodesnonactivetototaltime,nonactivegpunodelist,gpucardsnonactivetofirsttime,'GPU',gpunodetousernames,usernametomsgs)
         cpunodesnonactivetototaltime,cpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(cpunodesnonactivetototaltime,nonactivecpunodelist,cpucardsnonactivetofirsttime,'CPU',cpunodetousernames,usernametomsgs)
-        send=SendEmails(usernametomsgs,usernametoemail,senderemail,senderpassword)
-        if send==True:
-            cpunodesnonactivetototaltime={}
-            cpucardsnonactivetofirsttime={}
-            gpunodesnonactivetototaltime={}
-            gpucardsnonactivetofirsttime={}
+        #send=SendEmails(usernametomsgs,usernametoemail,senderemail,senderpassword)
+        #if send==True:
+        #    cpunodesnonactivetototaltime={}
+        #    cpucardsnonactivetofirsttime={}
+        #    gpunodesnonactivetototaltime={}
+        #    gpucardsnonactivetofirsttime={}
+        fh.close()
+        time.sleep(10)
 
-        time.sleep(1)
+
+def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh):
+    for cpunode,usernames in cpunodetousernames.items():
+        cpunode=cpunode[:-2]
+        usernametojobs=cpunodetousernametojobs[cpunode]
+        for otherusername,jobs in usernametojobs.items():
+            if otherusername not in usernames:
+                for job in jobs:
+                    string='Job for username '+otherusername+ ' is detected on node '+cpunode+'  but the only allowed usernames for this node are '+str(usernames)+'\n'
+                    fh.write(string)
+                    fh.write(job)
+                    
+
 
 def SendEmails(usernametomsgs,usernametoemail,senderemail,senderpassword):
     send=False
@@ -560,7 +591,7 @@ def SendReportEmail(TEXT,fromaddr,toaddr,password):
  
 
 
-cpuprogramlist=['bar','dynamic','psi4','g09','g16',"cp2k.ssmp","mpirun_qchem","dynamic.x",'minimize.x','minimize','poltype.py','amoebaannihilator.py']
+cpuprogramlist=['bar','dynamic','psi4','g09','g16',"cp2k.ssmp","mpirun_qchem","dynamic.x",'minimize.x','minimize','poltype.py','amoebaannihilator.py','python']
 
 nodelist=ReadNodeList(nodelistfilepath)
 if monitorresourceusage==False:
@@ -568,4 +599,4 @@ if monitorresourceusage==False:
     WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,coreconsumptionratio,ramconsumptionratio,diskconsumptionratio,nodetocardcount,nodetocardtype,mincardtype,nodefailanalyze)
 
 else:
-    MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,senderemail,senderpassword)
+    MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,senderemail,senderpassword,path)
