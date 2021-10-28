@@ -97,7 +97,7 @@ def ReadNodeList(nodelistfilepath,usernames):
         usernametonodetocardcount[username]={}
 
 
-    lowconsumratio=.2
+    lowconsumratio=0
     while not os.path.isfile(nodelistfilepath):
         time.sleep(1)
     temp=open(nodelistfilepath,'r')
@@ -712,7 +712,7 @@ def SendEmails(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenam
     for email,msgs in emailtomsg.items():
         msgs=list(set(msgs))
         msg='\n'.join(msgs)
-        #SendReportEmail(msg,senderemail,email,senderpassword)      
+        SendReportEmail(msg,senderemail,email,senderpassword)      
  
 
 def SendReportEmail(TEXT,fromaddr,toaddr,password):
