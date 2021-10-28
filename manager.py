@@ -246,6 +246,8 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
     callworker=True
     if 'gpu' in queuename and cardcount==str(0):
         callworker=False
+    if str(proc)=='0' and str(ram)=='0':
+        callworker=False
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
     cmdstr+=' '+'-M '+projectname
