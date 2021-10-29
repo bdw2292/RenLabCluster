@@ -18,6 +18,7 @@ global runningloggerfile
 waittime=15 # seconds
 startingportnumber=9123
 nodelistfilepath=os.path.join('NodeTopology','nodeinfo.txt')
+nodetopofilepath=os.path.split(nodelistfilepath)[0]
 masterhost='nova'
 envpath='/home/bdw2292/.allpurpose.bashrc'
 jobinfofilepath=None
@@ -1302,7 +1303,7 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
     return usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist
   
 
-def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
+def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath):
     if os.path.isfile(pidfile):
         raise ValueError('Daemon instance is already running')
 
@@ -1354,6 +1355,10 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     while success==False:
         success=ReadSheetsUpdateFile(usernames,nodelistfilepath)
         time.sleep(5)
+    curdir=os.getcwd()
+    os.chdir(nodetopofilepath)
+    os.system('python pingnodes.py --monitorresourceusage')
+    os.chdir(curdir)
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
 
@@ -1369,10 +1374,10 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     return usernametoqueuenametologgers,usernametoqueuenametolognames
 
 
-def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers):
+def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath):
     CheckInputs(password,projectname)
     try:
-        usernametoqueuenametologgers,usernametoqueuenametolognames=StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)   
+        usernametoqueuenametologgers,usernametoqueuenametolognames=StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath)   
     except:
         traceback.print_exc(file=sys.stdout)
         text = str(traceback.format_exc())
@@ -1388,7 +1393,7 @@ def StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectn
             os.remove(pidfile)
  
 if jobinfofilepath==None and backupmanager==False:
-    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)
+    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath)
 elif jobinfofilepath!=None and backupmanager==False:
 
     if canceltaskid==None and canceltasktag==None:
@@ -1410,4 +1415,4 @@ elif jobinfofilepath==None and backupmanager==True:
         time.sleep(waitingtime)
     jobinfofilepath=waitingloggerfile
     CopyJobInfoFilePath(jobinfofilepath,thedir)   
-    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers)
+    StartDaemonHandleErrors(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath)

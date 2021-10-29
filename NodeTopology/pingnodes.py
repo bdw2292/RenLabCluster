@@ -18,8 +18,13 @@ monitorresourceusage=False
 usernametoemaillist='usernamestoemail.txt'
 senderemail='renlabclusterreport@gmail.com'
 senderpassword='amoebaisbest'
-path='/home/bdw2292/public_html/'
-opts, xargs = getopt.getopt(sys.argv[1:],'',['diskconsumptionratio=',"bashrcpath=",'coreconsumptionratio=','mincardtype=','ramconsumptionratio=','monitorresourceusage','path='])
+user=os.environ["USER"]
+path=os.path.join('/home/',user)
+path=os.path.join(path,'public_html')
+if not os.path.isdir(path):
+    os.mkdir(path)
+
+opts, xargs = getopt.getopt(sys.argv[1:],'',['diskconsumptionratio=',"bashrcpath=",'coreconsumptionratio=','mincardtype=','ramconsumptionratio=','monitorresourceusage'])
 for o, a in opts:
     if o in ("--bashrcpath"):
         bashrcpath=a
@@ -33,8 +38,6 @@ for o, a in opts:
         mincardtype=int(a)
     elif o in ("--monitorresourceusage"):
         monitorresourceusage=True
-    elif o in ("--path"):
-        path=a
 
 
 def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist):
@@ -507,12 +510,11 @@ def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,sen
     gpunodesnonactivetototaltime={}
     gpucardsnonactivetofirsttime={}
     while True:
-        fh=open(os.path.join(path,'clusterviolations.txt'),'w')
         usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
         usernametomsgs={}
         cpunodelist,gpunodelist,cpucardlist,gpucardlist,cpunodetousernames,gpunodetousernames=ReadNodeTopology(nodetopofilepath)
         activecpunodelist,activegpunodelist,cpunodetousernametojobs=AlreadyActiveNodes(cpunodelist,gpunodelist,cpuprogramlist)
-        CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh)
+        CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,path)
         nonactivecpunodelist,nonactivegpunodelist=NonActiveNodes(cpucardlist,gpucardlist,activecpunodelist,activegpunodelist)
         gpunodesnonactivetototaltime,gpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(gpunodesnonactivetototaltime,nonactivegpunodelist,gpucardsnonactivetofirsttime,'GPU',gpunodetousernames,usernametomsgs)
         cpunodesnonactivetototaltime,cpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(cpunodesnonactivetototaltime,nonactivecpunodelist,cpucardsnonactivetofirsttime,'CPU',cpunodetousernames,usernametomsgs)
@@ -522,11 +524,12 @@ def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,sen
         #    cpucardsnonactivetofirsttime={}
         #    gpunodesnonactivetototaltime={}
         #    gpucardsnonactivetofirsttime={}
-        fh.close()
-        time.sleep(10)
+        time.sleep(1)
 
 
-def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh):
+def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,path):
+
+    fh=open(os.path.join(path,'clusterviolations.txt'),'w')
     for cpunode,usernames in cpunodetousernames.items():
         cpunode=cpunode[:-2]
         usernametojobs=cpunodetousernametojobs[cpunode]
@@ -537,7 +540,7 @@ def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh):
                     fh.write(string)
                     fh.write(job)
                     
-
+    fh.close()
 
 def SendEmails(usernametomsgs,usernametoemail,senderemail,senderpassword):
     send=False
