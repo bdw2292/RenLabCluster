@@ -594,7 +594,7 @@ def SendReportEmail(TEXT,fromaddr,toaddr,password):
  
 
 
-cpuprogramlist=['bar','dynamic','psi4','g09','g16',"cp2k.ssmp","mpirun_qchem","dynamic.x",'minimize.x','minimize','poltype.py','amoebaannihilator.py','python']
+cpuprogramlist=['bar','dynamic','psi4','g09','g16',"cp2k.ssmp","mpirun_qchem","dynamic.x",'minimize.x','minimize','poltype.py','amoebaannihilator.py','python','bar.x']
 
 nodelist=ReadNodeList(nodelistfilepath)
 if monitorresourceusage==False:

@@ -32,6 +32,11 @@ Killstring="ps aux | grep bdw2292 | grep python | grep amoeba | awk '{ print $2 
 KillSignal(cpunodes,killstring)
 Killstring="ps aux | grep bdw2292 | grep python | grep poltype.py | awk '{ print $2 }' | xargs pwdx| xargs kill -9"
 KillSignal(cpunodes,killstring)
+Killstring="ps aux | grep bdw2292 | grep psi4 | awk '{ print $2 }' | xargs pwdx| xargs kill -9"
+KillSignal(cpunodes,killstring)
+
 Killstring="ps aux | grep bdw2292 | grep work_queue_worker | awk '{ print $2 }' | xargs pwdx| xargs kill -9"
+KillSignal(cpunodes,killstring)
+Killstring="ps -fu bdw2292 | awk '{ print $2 }' | xargs kill -9"
 KillSignal(cpunodes,killstring)
 
