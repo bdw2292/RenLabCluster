@@ -1357,7 +1357,8 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
         time.sleep(5)
     curdir=os.getcwd()
     os.chdir(nodetopofilepath)
-    os.system('python pingnodes.py --monitorresourceusage')
+    cmdstr='python pingnodes.py --monitorresourceusage'
+    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
     os.chdir(curdir)
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
