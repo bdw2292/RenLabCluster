@@ -715,7 +715,10 @@ def SendEmails(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenam
     for email,msgs in emailtomsg.items():
         msgs=list(set(msgs))
         msg='\n'.join(msgs)
-        SendReportEmail(msg,senderemail,email,senderpassword)      
+        try:
+            SendReportEmail(msg,senderemail,email,senderpassword)   
+        except:
+            pass   
  
 
 def SendReportEmail(TEXT,fromaddr,toaddr,password):
