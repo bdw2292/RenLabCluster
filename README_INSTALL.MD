@@ -46,7 +46,7 @@ conda install -c conda-forge ndcctools=7.3.5 --yes
 conda install -c anaconda dill=0.3.2 --yes
 conda install -c conda-forge gspread=4.0.1 --yes
 conda install -c conda-forge tqdm=4.62.3 --yes
-
+conda install -c anaconda psutil --yes
 ```
 
 * Bashrc example
