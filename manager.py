@@ -786,13 +786,14 @@ def FindWorkerCommandsToKill(differentusernametoqueuenametonodelist,usernametoqu
             if queuename in queuenametonodetoworkercmdstr.keys():
                 nodetoworkercmdstr=queuenametonodetoworkercmdstr[queuename]
                 for node in nodelist:
-                    cmdstr=nodetoworkercmdstr[node]
-                    if node not in nodetoworkercmdstrstokill.keys():
-                        nodetoworkercmdstrstokill[node]=[]
-                    nodetoworkercmdstrstokill[node].append(cmdstr)
-                    del usernametoqueuenametonodetoworkercmdstr[username][queuename][node]
-                    string='Killing work_queue_worker for username '+username+'  on node '+node +' for queuename '+queuename
-                    usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
+                    if node in nodetoworkercmdstr.keys():
+                        cmdstr=nodetoworkercmdstr[node]
+                        if node not in nodetoworkercmdstrstokill.keys():
+                            nodetoworkercmdstrstokill[node]=[]
+                        nodetoworkercmdstrstokill[node].append(cmdstr)
+                        del usernametoqueuenametonodetoworkercmdstr[username][queuename][node]
+                        string='Killing work_queue_worker for username '+username+'  on node '+node +' for queuename '+queuename
+                        usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
 
 
     return nodetoworkercmdstrstokill,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametologgers,usernametoqueuenametolognames
