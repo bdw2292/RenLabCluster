@@ -40,10 +40,11 @@ for o, a in opts:
         monitorresourceusage=True
 
 
-def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist):
+def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist,cpunodetousernames,fh):
     activecpunodelist=[]
     activegpunodelist=[]
     cpunodetousernametojobs={}
+    alreadychecked=[]
     for nodeidx in tqdm(range(len(nodelist)),desc='Checking active nodes'):
         node=nodelist[nodeidx]
         if node not in cpunodetousernametojobs.keys():
@@ -79,13 +80,14 @@ def AlreadyActiveNodes(nodelist,gpunodes,programexceptionlist):
                     if output2 not in cpunodetousernametojobs[node]:
                         cpunodetousernametojobs[node][output2]=[]
                     cpunodetousernametojobs[node][output2].append(output1)
+                    alreadychecked,fh=CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh,alreadychecked)
             if len(activecards)!=0:
                 for card in activecards:
                     activecpunodelist.append(node+'-'+str(card))
             else:
                 activecpunodelist.append(node+'-'+str(0))
 
-    return activecpunodelist,activegpunodelist,cpunodetousernametojobs
+    return activecpunodelist,activegpunodelist,cpunodetousernametojobs,fh
 
 
 def CheckWhichGPUCardsActive(node):
@@ -510,11 +512,14 @@ def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,sen
     gpunodesnonactivetototaltime={}
     gpucardsnonactivetofirsttime={}
     while True:
+        fh=open(os.path.join(path,'clusterviolations.txt'),'w')
+        now = time.strftime("%c",time.localtime())
+        string=now+' Pinging nodes for cluster violations'+'\n'
+        fh.write(string)
         usernames,usernametoemail=ReadUsernameList(usernametoemaillist)
         usernametomsgs={}
         cpunodelist,gpunodelist,cpucardlist,gpucardlist,cpunodetousernames,gpunodetousernames=ReadNodeTopology(nodetopofilepath)
-        activecpunodelist,activegpunodelist,cpunodetousernametojobs=AlreadyActiveNodes(cpunodelist,gpunodelist,cpuprogramlist)
-        CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,path)
+        activecpunodelist,activegpunodelist,cpunodetousernametojobs,fh=AlreadyActiveNodes(cpunodelist,gpunodelist,cpuprogramlist,cpunodetousernames,fh)
         nonactivecpunodelist,nonactivegpunodelist=NonActiveNodes(cpucardlist,gpucardlist,activecpunodelist,activegpunodelist)
         gpunodesnonactivetototaltime,gpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(gpunodesnonactivetototaltime,nonactivegpunodelist,gpucardsnonactivetofirsttime,'GPU',gpunodetousernames,usernametomsgs)
         cpunodesnonactivetototaltime,cpunodesnonactivetofirsttime,usernametomsgs=UpdateTotalTime(cpunodesnonactivetototaltime,nonactivecpunodelist,cpucardsnonactivetofirsttime,'CPU',cpunodetousernames,usernametomsgs)
@@ -525,22 +530,26 @@ def MonitorResourceUsage(nodetopofilepath,cpuprogramlist,usernametoemaillist,sen
         #    gpunodesnonactivetototaltime={}
         #    gpucardsnonactivetofirsttime={}
         time.sleep(1)
+        fh.close()
 
 
-def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,path):
-
-    fh=open(os.path.join(path,'clusterviolations.txt'),'w')
+def CheckCPUViolations(cpunodetousernametojobs,cpunodetousernames,fh,alreadychecked):
     for cpunode,usernames in cpunodetousernames.items():
         cpunode=cpunode[:-2]
-        usernametojobs=cpunodetousernametojobs[cpunode]
-        for otherusername,jobs in usernametojobs.items():
-            if otherusername not in usernames:
-                for job in jobs:
-                    string='Job for username '+otherusername+ ' is detected on node '+cpunode+'  but the only allowed usernames for this node are '+str(usernames)+'\n'
-                    fh.write(string)
-                    fh.write(job)
-                    
-    fh.close()
+        if cpunode in cpunodetousernametojobs.keys():
+            usernametojobs=cpunodetousernametojobs[cpunode]
+            for otherusername,jobs in usernametojobs.items():
+                if otherusername not in usernames:
+                    for job in jobs:
+                        if job not in alreadychecked:
+                            alreadychecked.append(job)
+                            now = time.strftime("%c",time.localtime())
+
+                            string=now+' '+'Job for username '+otherusername+ ' is detected on node '+cpunode+'  but the only allowed usernames for this node are '+str(usernames)+'\n'
+                            fh.write(string)
+                            fh.write(job)
+    return alreadychecked,fh
+        
 
 def SendEmails(usernametomsgs,usernametoemail,senderemail,senderpassword):
     send=False

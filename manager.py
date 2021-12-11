@@ -16,7 +16,10 @@ global completedloggerfile
 global runningloggerfile
 
 waittime=15 # seconds
-startingportnumber=9123
+portrange=range(9120,9120+26+1)
+letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+lettertoport=dict(zip(letters,portrange))
+startingportnumber=None
 nodelistfilepath=os.path.join('NodeTopology','nodeinfo.txt')
 nodetopofilepath=os.path.split(nodelistfilepath)[0]
 masterhost='nova'
@@ -26,7 +29,6 @@ pidfile='daemon.pid'
 canceltaskid=None
 canceltasktag=None
 thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
-projectname=None
 password='secret'
 queueloggerfile='queuelogger.log'
 errorloggerfile='errorlogger.log'
@@ -36,10 +38,11 @@ completedloggerfile='completed.log'
 runningloggerfile='running.log'
 backupmanager=False
 usernametoemaillist=os.path.join('NodeTopology','usernamestoemail.txt')
-startworkers=False
-username=None
+startworkers=True
+username=os.environ["USER"]
 runallusers=False
 timetokillworkers=1*.5*60 # minutes
+projectname='RenLabCluster_'+username
 opts, xargs = getopt.getopt(sys.argv[1:],'',["bashrcpath=","jobinfofilepath=","canceltaskid=","canceltasktag=",'projectname=','password=','startingportnumber=','workerdir=','backupmanager','startworkers','username=','timetokillworkers=','runallusers='])
 for o, a in opts:
     if o in ("--bashrcpath"):
@@ -69,6 +72,9 @@ for o, a in opts:
     elif o in ("--timetokillworkers"):
         timetokillworkers=float(a)*60
 
+if startingportnumber==None:
+    firstletter=username[0]
+    startingportnumber=lettertoport[firstletter] 
 
 
 def ReadNodeList(nodelistfilepath,usernames):
@@ -1081,7 +1087,7 @@ def ParseJobInfo(line):
     inputline=line
     disk=None
     gpucard=None
-    username=None   
+    username=os.environ["USER"]
     gpujob=False
     for line in linesplit:
         if "job=" in line:
@@ -1295,7 +1301,7 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
         usernametoqueuenametotaskidtoinputline[username][mainqueuename]={}
         usernametoqueuenametonodetoworkercmdstr[username][mainqueuename]={}
         queue = wq.WorkQueue(portnumber,name=mainqueueprojectname,debug_log = os.path.join(username,mainqueuename+"_output.log"),stats_log = os.path.join(username,mainqueuename+"_stats.log"),transactions_log=os.path.join(username,mainqueuename+"_transactions.log"))
-        queue.enable_monitoring(os.path.join(username,mainqueuename+'_resourcesummary'),watchdog=False)
+        #queue.enable_monitoring(os.path.join(username,mainqueuename+'_resourcesummary'),watchdog=False)
         #queue.specify_password(mainqueuepassword) # bug where speiifying password makes tasks wait in queue
         usernametoqueuenametologgers[username][mainqueuename]=WriteToLogFile(usernametoqueuenametologgers[username][mainqueuename],"listening on port {}".format(queue.port),usernametoqueuenametolognames[username][mainqueuename],0)
         usernametoqueuenametoqueue[username][mainqueuename]=queue
@@ -1362,7 +1368,7 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     curdir=os.getcwd()
     os.chdir(nodetopofilepath)
     cmdstr='python pingnodes.py --monitorresourceusage'
-    process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+    #process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
     os.chdir(curdir)
     nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)

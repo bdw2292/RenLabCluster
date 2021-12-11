@@ -5,21 +5,17 @@
 * Activate conda envioronment for CCTools before calling manager
 * Go to directory with manager.py
 * Each user will get their own queue of workers
-* Choose unique password that queue and work_queue_workers on cluster share. User specific queues will get password of username_mainqueue_password 
-* Choose unique projectname this instance of queue and work_queue_workers on cluster share. User specific queues will get projectnames of username_projectname_mainqueue
-* Please choose starting port number for queue default (9123), for each username queue (from list of usernames), the portnumber will be startingportnumber+1,startingportnumber+2,... 
 * Default --workerdir is /scratch
 * Usernames are read in from usernames.txt and jobs are sent to /workerdir/username (default /scratch/username)
 * --bashrcpath is optional argument, if not given there is a default bashrc file 
 * Its recommended to have conda envioronments installed for Poltype, AMOEBAAnnihilator and ForceBalance in bashrc as well as Tinker GPU for different CUDA versions and CPU Tinker for different OS versions
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
 * --backupmanager can be used to have manager run in backupmode, this will automatically act as manager if first manager dies (if the daemon.pid file disappears) and then read in the current waiting.log as input for queue.
-* --startworkers is optional agrument (only use if work_queue_workers are not on nodes), otherwise PID for each work_queue_worker associated to each user is read in from filename usertoqueuenametonodetopid.txt
 * If you only want to use manager for a single username, then add --username=username in arguments below
 * --timetokillworkers is optional argument. When a change in user allocated resources is detected, then program will wait timetokillworkers amount of time in minutes until workers on nodes with changed resources are killed and restarted with updated resource allocations (default 15 minutes)
 * Run the follwing command to listen and wait for input job files
 ```
-nohup python manager.py --projectname=projectname --password=password --startingportnumber=portnumber --workerdir=/scratch --bashrcpath=path_to_bashrc --startworkers --username=username &
+nohup python manager.py &
 ```
 * poltype will prepare the inputs for you with keywords in inputfile (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292), see https://github.com/TinkerTools/poltype2
 * AMOEBAAnnihilator will also prepare inputs for you with keywords in input file (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292) https://github.com/bdw2292/AMOEBAAnnihilator
