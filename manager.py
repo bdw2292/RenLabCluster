@@ -305,7 +305,7 @@ def ReadJobInfoFromFile(jobinfo,filename,usernametoqueuenametologgers,usernameto
             split=line.split()
             if len(split)==0:
                 continue
-            cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk,username,gpucard,gpujob=ParseJobInfo(line)
+            cmdstr,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk,username,gpucard,gpujob,emailaddr=ParseJobInfo(line)
             string=''
             if username==None:
                 continue
@@ -348,7 +348,7 @@ def ReadJobInfoFromFile(jobinfo,filename,usernametoqueuenametologgers,usernameto
                 string+=line+'\n'
                 usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],0)
                 continue
-            array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline','disk','username','gpucard','gpujob']
+            array=['ram','numproc','inputfilepaths','outputfilepaths','binpath','scratchpath','cache','inputline','disk','username','gpucard','gpujob','emailaddr']
             for key in array:
                 if key not in jobinfo.keys():
                     jobinfo[key]={}
@@ -365,7 +365,7 @@ def ReadJobInfoFromFile(jobinfo,filename,usernametoqueuenametologgers,usernameto
             jobinfo['username'][job]=username
             jobinfo['gpucard'][job]=gpucard
             jobinfo['gpujob'][job]=gpujob
-
+            jobinfo['emailaddr'][job]=emailaddr
 
     return jobinfo
 
@@ -382,6 +382,7 @@ def ReadJobInfoFromDic(jobinfo):
     jobtousername={}
     jobtogpucard={}
     jobtogpujob={}
+    jobtoemailaddr={}
     if 'ram' in jobinfo.keys():
         jobtoram=jobinfo['ram']
     if 'numproc' in jobinfo.keys():
@@ -406,9 +407,11 @@ def ReadJobInfoFromDic(jobinfo):
         jobtogpucard=jobinfo['gpucard']
     if 'gpujob' in jobinfo.keys():
         jobtogpujob=jobinfo['gpujob']
+    if 'emailaddr' in jobinfo.keys():
+        jobtoemailaddr=jobinfo['emailaddr']
 
 
-    return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob
+    return jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob,jobtoemailaddr
 
 def ConvertMemoryToMBValue(scratch):
     availspace,availunit=SplitScratch(scratch)
@@ -433,9 +436,9 @@ def SplitScratch(string):
 
 
 
-def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber):
+def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail):
     import work_queue as wq
-    jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob=ReadJobInfoFromDic(jobinfo)
+    jobtoram,jobtonumproc,jobtoinputfilepaths,jobtobinpath,jobtoscratchpath,jobtooutputfilepaths,jobtocache,jobtoinputline,jobtodisk,jobtousername,jobtogpucard,jobtogpujob,jobtoemailaddr=ReadJobInfoFromDic(jobinfo)
     for job,ram in jobtoram.items():
         if job!=None:
             numproc=jobtonumproc[job]
@@ -450,7 +453,7 @@ def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usern
             username=jobtousername[job]
             gpucard=jobtogpucard[job]
             gpujob=jobtogpujob[job]
-            
+            email=jobtoemailaddr[job] 
             
             if gpujob==True:
                 queuename=username+'_'+'maingpuqueue'
@@ -460,7 +463,7 @@ def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usern
                 queuename=username+'_'+gpucard
             if queuename not in usernametoqueuenametologgers[username].keys():
                 queuenamelist=[queuename]
-                usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist)
+                usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail)
             
 
             usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],"Submitting tasks...",usernametoqueuenametolognames[username][queuename],0)
@@ -502,7 +505,8 @@ def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usern
             usernametoqueuenametotaskidtoinputline[username][queuename][taskid]=inputline
             usernametoqueuenametotaskidtojob[username][queuename][taskid]=job
             usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Task ID of '+taskid+' is assigned to job '+cmdstr,usernametoqueuenametolognames[username][queuename],0)
-    return usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber
+            usernametoqueuenametotaskidtoemail[username][queuename][taskid]=email
+    return usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail
 
 
 def WriteOutTaskStateLoggingInfo(taskidtoinputline,queue,queuename,username):
@@ -718,16 +722,17 @@ def SendEmails(usernametoqueuenametonodetodifferentusableproc,usernametoqueuenam
         if email not in emailtomsg.keys():
             emailtomsg[email]=[]
         emailtomsg[email].append(msg)
+    subject='Resource Allocation Change Report '
     for email,msgs in emailtomsg.items():
         msgs=list(set(msgs))
         msg='\n'.join(msgs)
         try:
-            SendReportEmail(msg,senderemail,email,senderpassword)   
+            SendReportEmail(msg,senderemail,email,senderpassword,subject)   
         except:
             pass   
  
 
-def SendReportEmail(TEXT,fromaddr,toaddr,password):
+def SendReportEmail(TEXT,fromaddr,toaddr,password,subject):
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
@@ -735,7 +740,7 @@ def SendReportEmail(TEXT,fromaddr,toaddr,password):
     msg = MIMEMultipart()
     msg['From'] = fromaddr
     msg['To'] = toaddr
-    msg['Subject'] = 'Resource Allocation Change Report '
+    msg['Subject'] = subject 
     message = TEXT
     msg.attach(MIMEText(message, 'plain'))
     s = smtplib.SMTP_SSL('smtp.gmail.com')
@@ -922,7 +927,7 @@ def SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,user
     return usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount
 
 
-def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames):
+def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail):
     detectresourceallocationchange=False
     timedetectedchange=None
     usernametonodetoqueuenametodifferentusableproc={}
@@ -945,7 +950,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
         jobinfo={}
         jobinfo,foundinputjobs=CheckForInputJobs(jobinfo,usernametoqueuenametologgers,usernametoqueuenametolognames)
         if foundinputjobs==True:
-            usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber)
+            usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail)
             usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need another one here just in case user wants GPU card type queue
         if detectresourceallocationchange==False: 
             detectresourceallocationchange,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametonodetodifferentcardcount,differentusernametoqueuenametonodelist=DetectResourceAllocationChange(usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,prevusernametoqueuenametonodetousableproc,prevusernametoqueuenametonodetousableram,prevusernametoqueuenametonodetousabledisk,prevusernametoqueuenametonodetocardcount,timetokillworkers,prevnodetoallowedgpuusernames,prevnodetoallowedcpuusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoemail,senderemail,senderpassword,usernametoqueuenametoqueue,nodetocardtype)
@@ -976,6 +981,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
             queuenametoqueue=usernametoqueuenametoqueue[username]
             queuenametotaskidtoinputline=usernametoqueuenametotaskidtoinputline[username]
             queuenametotaskidtojob=usernametoqueuenametotaskidtojob[username]
+            queuenametotaskidtoemail=usernametoqueuenametotaskidtoemail[username]
             queuenametotaskidtooutputfilepathslist=usernametoqueuenametotaskidtooutputfilepathslist[username]
             queuenames=list(queuenametoqueue.keys())
             random.shuffle(queuenames) # ensures that the first queue for user isnt the one that always gets serviced
@@ -984,6 +990,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
                     break
                 q= queuenametoqueue[queuename]
                 taskidtoinputline=queuenametotaskidtoinputline[queuename]
+                taskidtoemail=queuenametotaskidtoemail[queuename]
                 taskidtooutputfilepathslist=queuenametotaskidtooutputfilepathslist[queuename]
                 WriteOutTaskStateLoggingInfo(taskidtoinputline,q,queuename,username) 
                 while not q.empty():
@@ -995,6 +1002,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
                     if t:
                         taskid=str(t.id)
                         inputline=taskidtoinputline[taskid]
+                        emailaddr=taskidtoemail[taskid]
                         newoutputfilepaths=[] # sort by largest file size and move largest first (like move arc first so dont submit next job before arc and dyn are returned
                         if taskid in taskidtooutputfilepathslist.keys():
                             outputfilepaths=taskidtooutputfilepathslist[taskid]
@@ -1018,7 +1026,15 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
                         returnstatus=t.return_status
                         usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'A job has finished Task %s, return status= %s!\n' % (str(taskid),str(returnstatus)),usernametoqueuenametolognames[username][queuename],0)
                         if returnstatus!=0:
-                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Error: Job did not terminate normally '+inputline,usernametoqueuenametolognames[username][queuename],1)
+                            string='Error: Job did not terminate normally '+inputline
+                            subject='Daemon Job Crash Report'
+                            if emailaddr!=None:
+                                try:
+                                    SendReportEmail(string,senderemail,emailaddr,senderpassword,subject)   
+                                except:
+                                    pass
+
+                            usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],string,usernametoqueuenametolognames[username][queuename],1)
 
                         try:
                             usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Job name = ' + str(t.tag) + 'command = ' + str(t.command) + '\n',usernametoqueuenametolognames[username][queuename],0)
@@ -1089,7 +1105,10 @@ def ParseJobInfo(line):
     gpucard=None
     username=os.environ["USER"]
     gpujob=False
+    emailaddr=None
     for line in linesplit:
+        if "email=" in line:
+            emailaddr=line.replace('email=','')
         if "job=" in line:
             job=line.replace('job=','')
         if "scratchpath=" in line:
@@ -1118,7 +1137,7 @@ def ParseJobInfo(line):
             gpujob=True
 
 
-    return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk,username,gpucard,gpujob
+    return job,ram,numproc,inputfilepaths,outputfilepaths,binpath,scratchpath,cache,inputline,disk,username,gpucard,gpujob,emailaddr
 
 def CheckForTaskCancellations(q,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtotasktag):
     thedir= os.path.dirname(os.path.realpath(__file__))+r'/'
@@ -1254,7 +1273,7 @@ def ReadUsernameList(usernamelist):
     return usernames,usernametoemail
 
 
-def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist):
+def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail):
     
     import work_queue as wq
     portnumber=startingportnumber
@@ -1272,6 +1291,8 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
         usernametoqueuenametotaskidtooutputfilepathslist[username]={}
     if username not in usernametoqueuenametotaskidtojob.keys():
         usernametoqueuenametotaskidtojob[username]={}
+    if username not in usernametoqueuenametotaskidtoemail.keys():
+        usernametoqueuenametotaskidtoemail[username]={}
     if username not in usernametoqueuenametolognames.keys():
         usernametoqueuenametolognames[username]={}
     if username not in usernametoqueuenametoprojectname.keys():
@@ -1297,6 +1318,7 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
         mainqueuepassword=mainqueuename+'_'+password
         usernametoqueuenametopassword[username][mainqueuename]=mainqueuepassword
         usernametoqueuenametotaskidtojob[username][mainqueuename]={}
+        usernametoqueuenametotaskidtoemail[username][mainqueuename]={}
         usernametoqueuenametotaskidtooutputfilepathslist[username][mainqueuename]={}
         usernametoqueuenametotaskidtoinputline[username][mainqueuename]={}
         usernametoqueuenametonodetoworkercmdstr[username][mainqueuename]={}
@@ -1310,7 +1332,7 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
     startingportnumber=portnumber+1
 
 
-    return usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist
+    return usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail
   
 
 def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,masterhost,password,workerdir,waittime,usernametoemaillist,startworkers,username,runallusers,nodetopofilepath):
@@ -1322,6 +1344,7 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     usernametoqueuenametonodetoworkercmdstr={}
     usernametoqueuenametoqueue={}
     usernametoqueuenametotaskidtojob={}
+    usernametoqueuenametotaskidtoemail={}
     usernametoqueuenametolognames={}
     usernametoqueuenametoprojectname={}
     usernametoqueuenametoportnumber={}
@@ -1352,7 +1375,7 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
 
         os.chdir('..')
         queuenamelist=[username+'_'+'maincpuqueue',username+'_'+'maingpuqueue']
-        usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist)
+        usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail=StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail)
 
         
 
@@ -1379,9 +1402,9 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
         usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr)
 
     jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
-    usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber)
+    usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need one here just in case user wants card type GPU queue
-    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames)
+    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail)
     return usernametoqueuenametologgers,usernametoqueuenametolognames
 
 
