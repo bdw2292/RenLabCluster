@@ -1026,7 +1026,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
                         returnstatus=t.return_status
                         usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'A job has finished Task %s, return status= %s!\n' % (str(taskid),str(returnstatus)),usernametoqueuenametolognames[username][queuename],0)
                         if returnstatus!=0:
-                            string='Error: Job did not terminate normally '+inputline
+                            string='Error: Job did not terminate normally '+"Host = " + str(t.hostname)+inputline
                             subject='Daemon Job Crash Report'
                             if emailaddr!=None:
                                 try:
