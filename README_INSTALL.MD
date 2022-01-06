@@ -1,5 +1,5 @@
 ## Setup for Cluster Submission
-* Make sure you can ssh into all nodes, so rsk keys exist for each node
+* Make sure you can ssh into all nodes, so rsa keys exist for each node
 * Install miniconda or anaconda
 * Clone repo 
 ```
@@ -34,6 +34,7 @@ conda activate amoebamdpoltype
 conda install scipy=1.7.1 --yes
 conda install matplotlib=3.4.3 --yes
 conda install -c conda-forge openbabel=2.4.1 --yes
+conda install -c conda-forge forcebalance --yes
 conda install git pip=21.3.1 --yes
 conda install -c conda-forge rdkit=2021.09.2 --yes
 conda install -c conda-forge mdanalysis=2.0.0 --yes
@@ -103,7 +104,7 @@ else
            $TINKER9/analyze9.sh $@
        }
        export -f analyze_gpu
-       export GPUDYNAMICS=True
+       export GPUDYNAMICS=True # need for forcebalance to know to use dynamic_gpu (modified forcebalance)
   elif [ $VALUE == 112 ] ; then
        export TINKERGPUDIR=/home/liuchw/Softwares/tinkers/Tinker9-latest/build_cuda11.2
        function dynamic_gpu () {
@@ -134,10 +135,13 @@ else
 
 
 fi
+
 if [ $OSVERSION == 8 ] ; then
     export PATH=/home/bdw2292/NewestTinkerOS8/bin/:$PATH
+    export TINKERPATH=/home/bdw2292/NewestTinkerOS8/bin/ # this is for ForceBalance to recognize tinker path in different nodes
 else
     export PATH=/home/bdw2292/NewestTinker/bin/:$PATH
+    export TINKERPATH=/home/bdw2292/NewestTinker/bin/
 fi
 
 export myusername=`whoami`

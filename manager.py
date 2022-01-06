@@ -16,9 +16,11 @@ global completedloggerfile
 global runningloggerfile
 
 waittime=15 # seconds
-portrange=range(9120,9120+26+1)
 letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+startport=9000
+portrange=range(startport,startport+len(letters)*10+1,10)
 lettertoport=dict(zip(letters,portrange))
+print(lettertoport)
 startingportnumber=None
 nodelistfilepath=os.path.join('NodeTopology','nodeinfo.txt')
 nodetopofilepath=os.path.split(nodelistfilepath)[0]
@@ -75,6 +77,7 @@ for o, a in opts:
 if startingportnumber==None:
     firstletter=username[0]
     startingportnumber=lettertoport[firstletter] 
+    
 
 
 def ReadNodeList(nodelistfilepath,usernames):
@@ -97,6 +100,7 @@ def ReadNodeList(nodelistfilepath,usernames):
     usernametonodetousabledisk={}
     usernametonodetousableproc={}
     usernametonodetocardcount={}
+    nodetouseFB={}
     for username in usernames:
         usernametonodetousableram[username]={}
         usernametonodetousabledisk[username]={}
@@ -135,14 +139,15 @@ def ReadNodeList(nodelistfilepath,usernames):
             coreconsumratio=float(linesplit[6])
             ramconsumratio=float(linesplit[7])
             diskconsumratio=float(linesplit[8])
-            if len(linesplit)>=9+1:
-                cpuusername=linesplit[9]
+            useFB=linesplit[9]
+            if len(linesplit)>=10+1:
+                cpuusername=linesplit[10]
                 if cpuusername not in usernames:
                     cpuusername='NOUSER'
             else:
                 cpuusername='NOUSER'
-            if len(linesplit)>=10+1:
-                gpuusername=linesplit[10]
+            if len(linesplit)>=11+1:
+                gpuusername=linesplit[11]
                 if gpuusername not in usernames:
                     gpuusername='NOUSER'
             else:
@@ -167,7 +172,7 @@ def ReadNodeList(nodelistfilepath,usernames):
             else:
                 lowscratch=0
 
-
+            nodetouseFB[node]=useFB
             nodetousableram[node]=ram
             nodetousabledisk[node]=scratch
             nodetousableproc[node]=proc
@@ -237,10 +242,10 @@ def ReadNodeList(nodelistfilepath,usernames):
             usernametonodetousableproc[username][node]=availproc
 
 
-    return nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype
+    return nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype,nodetouseFB
 
 
-def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkercmdstr,queuename):
+def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkercmdstr,queuename,nodetoporttouseFB,nodetouseFB,FBsubmitonly):
     fullworkdir=os.path.join(workerdir,username)
     idletimeout=100000000
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
@@ -257,7 +262,8 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
         callworker=False
     cmdstr+=' '+'--gpus '+str(cardcount)
     cmdstr+=' '+'-t '+str(idletimeout)
-    cmdstr+=' '+'-M '+projectname
+    if FBsubmitonly==False:
+        cmdstr+=' '+'-M '+projectname
     firstcmdstr=cmdstr
     #cmdstr+=' '+'--password '+password # for some reason cctools has bug in specifying password
     #cmdstr+=' '+'--disk '+str(disk)
@@ -268,10 +274,11 @@ def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,pass
         cmdstr = 'ssh %s "source %s ;%s"' %(str(node),envpath,cmdstr)
         usernametoqueuenametologgers[username][queuename]=WriteToLogFile(usernametoqueuenametologgers[username][queuename],'Calling: '+cmdstr,usernametoqueuenametolognames[username][queuename],0)
         process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
-        usernametoqueuenametonodetoworkercmdstr[username][queuename][node]=firstcmdstr
-    return usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr
+        if FBsubmitonly==False:
+            usernametoqueuenametonodetoworkercmdstr[username][queuename][node]=firstcmdstr
+    return usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB
 
-def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr):
+def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB,startingportnumber,fbnametoportnumber,usedfnames,FBsubmitonly=False):
     for username,queuenametonodetousableproc in usernametoqueuenametonodetousableproc.items():
         queuenametonodetousableram=usernametoqueuenametonodetousableram[username]
         queuenametonodetousabledisk=usernametoqueuenametonodetousabledisk[username]
@@ -292,8 +299,32 @@ def CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,user
                     cardcount=nodetocardcount[node]
                     projectname=queuenametoprojectname[queuename]
                     password=queuenametopassword[queuename]
-                    usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr=CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkercmdstr,queuename) 
-    return usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr
+                    if FBsubmitonly==True and 'gpu' in queuename: # only submit to gpu worker for gpu dynamics
+
+                        if nodetouseFB[node]=='NOFB':
+                            continue
+                        FBname=nodetouseFB[node]
+                        if FBname not in usedfnames:
+                            usedfnames.append(FBname)
+                            startingportnumber+=1
+                        if FBname not in fbnametoportnumber.keys():
+                            fbnametoportnumber[FBname]=startingportnumber
+                            portnumber=startingportnumber
+                        else:
+                            portnumber=fbnametoportnumber[FBname]
+                        submittedtoFB=True
+                        if node not in nodetoporttouseFB.keys():
+                            nodetoporttouseFB[node]={}
+                        if portnumber not in nodetoporttouseFB[node]:
+                            nodetoporttouseFB[node][portnumber]=True
+                        else:
+                            continue # then this is repeated and dont want to resubmit another worker
+                    elif FBsubmitonly==False and 'gpu' in queuename:
+                        if nodetouseFB[node]!='NOFB':
+                            continue
+
+                    usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB=CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkercmdstr,queuename,nodetoporttouseFB,nodetouseFB,FBsubmitonly)
+    return usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,startingportnumber,fbnametoportnumber,usedfnames
 
 
 def ReadJobInfoFromFile(jobinfo,filename,usernametoqueuenametologgers,usernametoqueuenametolognames):
@@ -433,8 +464,6 @@ def SplitScratch(string):
     space=string[:index]
     diskunit=string[index]
     return space,diskunit
-
-
 
 def SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail):
     import work_queue as wq
@@ -927,7 +956,7 @@ def SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,user
     return usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount
 
 
-def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail):
+def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail,nodetoporttouseFB):
     detectresourceallocationchange=False
     timedetectedchange=None
     usernametonodetoqueuenametodifferentusableproc={}
@@ -945,10 +974,12 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
         time.sleep(5)
         breakout=False
         success=ReadSheetsUpdateFile(usernames,nodelistfilepath)
-        nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
+        nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype,nodetouseFB=ReadNodeList(nodelistfilepath,usernames)
         usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
         jobinfo={}
         jobinfo,foundinputjobs=CheckForInputJobs(jobinfo,usernametoqueuenametologgers,usernametoqueuenametolognames)
+        usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,startingportnumber,fbnametoportnumber,usedfnames=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB,startingportnumber,fbnametoportnumber,usedfnames,FBsubmitonly=True)
+
         if foundinputjobs==True:
             usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail)
             usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need another one here just in case user wants GPU card type queue
@@ -963,7 +994,7 @@ def Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,username
             if diff>=timetokillworkers: 
                 nodetoworkercmdstrstokill,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametologgers,usernametoqueuenametolognames=FindWorkerCommandsToKill(differentusernametoqueuenametonodelist,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametologgers,usernametoqueuenametolognames)
                 KillWorkers(nodetoworkercmdstrstokill)
-                usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr)
+                usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,startingportnumber,fbnametoportnumber,usedfnames=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetodifferentusableproc,usernametoqueuenametonodetodifferentusableram,usernametoqueuenametonodetodifferentusabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetodifferentcardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB,startingportnumber,fbnametoportnumber,usedfnames)
                 timedetectedchange=None
                 detectresourceallocationchange=False
 
@@ -1204,7 +1235,7 @@ def WriteUsernameToNodeTopologyFile(nodetopology,gpunodetousername,cpunodetouser
         if '#' not in line:
             linesplit=line.split()
             card=linesplit[0]
-            linesplit=linesplit[:8+1]
+            linesplit=linesplit[:9+1]
             line=' '.join(linesplit)
             nouser=False
             if card in gpunodetousername.keys():
@@ -1329,7 +1360,7 @@ def StartQueues(startingportnumber,username,queuenamelist,usernametoqueuenametot
         usernametoqueuenametoqueue[username][mainqueuename]=queue
         portnumber+=1
         usernametoqueuenametotaskidtotasktag[username][mainqueuename]={}
-    startingportnumber=portnumber+1
+    startingportnumber=portnumber
 
 
     return usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoemail
@@ -1388,23 +1419,18 @@ def StartDaemon(pidfile,nodelistfilepath,startingportnumber,projectname,envpath,
     while success==False:
         success=ReadSheetsUpdateFile(usernames,nodelistfilepath)
         time.sleep(5)
-    curdir=os.getcwd()
-    os.chdir(nodetopofilepath)
-    cmdstr='python pingnodes.py --monitorresourceusage'
-    #process = subprocess.Popen(cmdstr, stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
-    os.chdir(curdir)
-    nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype=ReadNodeList(nodelistfilepath,usernames)
+    nodelist,usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,nodetoallowedgpuusernames,nodetoallowedcpuusernames,nodetocardtype,nodetouseFB=ReadNodeList(nodelistfilepath,usernames)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue)
-
-    
-    
+    usedfnames=[]
+    fbnametoportnumber={}
+    nodetoporttouseFB={}
     if startworkers==True:
-        usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr)
-
+        usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,startingportnumber,fbnametoportnumber,usedfnames=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB,startingportnumber,fbnametoportnumber,usedfnames)
+        usernametoqueuenametologgers,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,startingportnumber,fbnametoportnumber,usedfnames=CallWorkers(nodelist,envpath,masterhost,usernametoqueuenametoportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametoprojectname,usernametoqueuenametopassword,usernametoqueuenametonodetocardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,usernametoqueuenametonodetoworkercmdstr,nodetoporttouseFB,nodetouseFB,startingportnumber,fbnametoportnumber,usedfnames,FBsubmitonly=True)
     jobinfo,usernametoqueuenametologgers=WaitForInputJobs(usernametoqueuenametologgers,usernametoqueuenametolognames)
     usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail=SubmitToQueue(jobinfo,usernametoqueuenametotaskidtooutputfilepathslist,usernametoqueuenametotaskidtoinputline,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametolognames,usernametoqueuenametoprojectname,usernametoqueuenametoportnumber,usernametoqueuenametologgers,usernametoqueuenametopassword,startingportnumber,usernametoqueuenametotaskidtoemail)
     usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount=SplitNodeResources(usernametonodetousableproc,usernametonodetousableram,usernametonodetousabledisk,usernametonodetocardcount,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,nodetocardtype,usernametoqueuenametoqueue) # need one here just in case user wants card type GPU queue
-    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail)
+    Monitor(usernametoqueuenametoqueue,usernametoqueuenametotaskidtojob,usernametoqueuenametotaskidtooutputfilepathslist,waittime,usernametoqueuenametotaskidtoinputline,usernametoqueuenametologgers,usernametoqueuenametolognames,usernametoqueuenametotaskidtotasktag,usernametoqueuenametonodetoworkercmdstr,nodelist,nodelistfilepath,envpath,masterhost,usernametoqueuenametoprojectname,usernametoqueuenametopassword,workerdir,timetokillworkers,usernametoemail,senderemail,senderpassword,usernametoqueuenametoportnumber,usernames,startingportnumber,usernametoqueuenametonodetousableproc,usernametoqueuenametonodetousableram,usernametoqueuenametonodetousabledisk,usernametoqueuenametonodetocardcount,queueusernames,nodetoallowedgpuusernames,nodetoallowedcpuusernames,usernametoqueuenametotaskidtoemail,nodetoporttouseFB)
     return usernametoqueuenametologgers,usernametoqueuenametolognames
 
 

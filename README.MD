@@ -125,8 +125,10 @@ python pingnodes.py --bashrcpath=path_to_bashrc --coreconsumptionratio=.7 --ramc
 * analyze_gpu is run on each node with bashrcpath to test if envioronment for that node is correct
 * The columns within nodeinfo.txt are as follows       
 ```
-node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRatio CPUUsername GPUUsername
+node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRatio UseForceBalance CPUUsername GPUUsername
 ```
+* Put NOFB under UseForceBalance column if you dont want the GPU cards on that node to use ForceBalance.
+* If you do want to use ForceBalance, put a job name under the UseForceBalance column for all nodes allocated to that ForceBalance job. Such as FBJob1, FBJob2 etc...
 * The resources listed are total possible,
 * To be safe  its good to run this before running manager.py, GPU cards could die or changes to cluster hardware made
 * Consumption ratio is the amount of total resources that a node can use for work_queue_worker, this file is read in when manager.py is called and then the worker_queue_worker on each host is restricted by the total available resource *consumptionratio for each resource. Then worker will always report static values to manager for job distribution.

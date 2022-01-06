@@ -405,7 +405,7 @@ def SplitScratch(string):
 
 def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototalscratch,nodelist,coreconsumptionratio,ramconsumptionratio,diskconsumptionratio,nodetocardcount,nodetocardtype,mincardtype,nodefailanalyze):
     temp=open(filename,'w')
-    columns='#node'+' '+'HASGPU'+' '+'CARDTYPE'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'CPUConsumptionRatio'+' '+'RAMConsumptionRatio'+' '+'DiskConsumptionRatio'+' '+'CPUUsername'+' '+'GPUUsername'+'\n'
+    columns='#node'+' '+'HASGPU'+' '+'CARDTYPE'+' '+'Processors'+' '+'RAM(MB)'+' '+'Scratch(MB)'+' '+'CPUConsumptionRatio'+' '+'RAMConsumptionRatio'+' '+'DiskConsumptionRatio'+' '+'Use ForceBalance'+' '+'CPUUsername'+' '+'GPUUsername'+'\n'
     temp.write(columns)
     for node in nodelist:
         hasgpu=False
@@ -448,14 +448,15 @@ def WriteOutNodeInfo(filename,gpunodes,nodetototalram,nodetototalcpu,nodetototal
     
 
         count=int(cardcount)
+        useFB='NOFB'
         if count>0: 
             for i in range(count):
                 cardstring='-'+str(i)
-                string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+'\n'
+                string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+' '+useFB+'\n'
                 temp.write(string)
         else:
             cardstring='-'+str(0)
-            string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+'\n'
+            string=node+cardstring+' '+gpustring+' '+cardtype+' '+nproc+' '+ram+' '+scratch+' '+thecoreconsumptionratio+' '+theramconsumptionratio+' '+thediskconsumptionratio+' '+useFB+'\n'
             temp.write(string)
 
     temp.close()
