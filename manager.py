@@ -20,7 +20,6 @@ letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', '
 startport=9000
 portrange=range(startport,startport+len(letters)*10+1,10)
 lettertoport=dict(zip(letters,portrange))
-print(lettertoport)
 startingportnumber=None
 nodelistfilepath=os.path.join('NodeTopology','nodeinfo.txt')
 nodetopofilepath=os.path.split(nodelistfilepath)[0]
@@ -248,8 +247,11 @@ def ReadNodeList(nodelistfilepath,usernames):
 def CallWorker(node,envpath,masterhost,portnumber,proc,ram,disk,projectname,password,cardcount,usernametoqueuenametologgers,usernametoqueuenametolognames,workerdir,username,usernametoqueuenametonodetoworkercmdstr,queuename,nodetoporttouseFB,nodetouseFB,FBsubmitonly):
     fullworkdir=os.path.join(workerdir,username)
     idletimeout=100000000
+    if FBsubmitonly==True:
+        fullworkdir=os.path.join(fullworkdir,'FB')
     cmdstr='work_queue_worker '+str(masterhost)+' '+str(portnumber) 
     cmdstr+=' --workdir '+fullworkdir
+    
     cmdstr+=' -d all -o '+os.path.join(fullworkdir,'worker.debug')
     if proc!='UNK':
         cmdstr+=' '+'--cores '+str(proc)
