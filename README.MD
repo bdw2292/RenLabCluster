@@ -1,7 +1,7 @@
 ## Help
 
 ## Usage
-* Go to NOVA
+* Go to bme-sun
 * Activate conda envioronment for CCTools before calling manager
 * Go to directory with manager.py
 * Each user will get their own queue of workers
@@ -11,16 +11,14 @@
 * Its recommended to have conda envioronments installed for Poltype, AMOEBAAnnihilator and ForceBalance in bashrc as well as Tinker GPU for different CUDA versions and CPU Tinker for different OS versions
 * Scratch directories for QM/poltype bashrc's need to be modified. It is best to copy bashrcs and make modifications as desired.
 * --backupmanager can be used to have manager run in backupmode, this will automatically act as manager if first manager dies (if the daemon.pid file disappears) and then read in the current waiting.log as input for queue.
-* If you only want to use manager for a single username, then add --username=username in arguments below
 * --timetokillworkers is optional argument. When a change in user allocated resources is detected, then program will wait timetokillworkers amount of time in minutes until workers on nodes with changed resources are killed and restarted with updated resource allocations (default 15 minutes)
 * Run the follwing command to listen and wait for input job files
 ```
 nohup python manager.py &
 ```
-* poltype will prepare the inputs for you with keywords in inputfile (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292), see https://github.com/TinkerTools/poltype2
-* AMOEBAAnnihilator will also prepare inputs for you with keywords in input file (example externalapi=/home/bdw2292/ClusterDaemon/manager.py,username=bdw2292) https://github.com/bdw2292/AMOEBAAnnihilator
+* poltype will prepare the inputs for you with keywords in inputfile (example externalapi=/home/bdw2292/ClusterDaemon/manager.py), see https://github.com/TinkerTools/poltype2
+* AMOEBAAnnihilator will also prepare inputs for you with keywords in input file (example externalapi=/home/bdw2292/ClusterDaemon/manager.py) https://github.com/bdw2292/AMOEBAAnnihilator
 * Then after preparation of input job script is complete (see below), run the following command 
-* If --username not specified in line, then job will be rejected. If --username is not in list of usernames.txt then job will be rejected.
 * If --job is not specified, then job will be rejected.
 * If --inputfilepaths is not specified, then job will be rejected.
 * If --ram,--disk, or --numproc is not specified, then job will get rejected. These are needed to prevent all resources of certain type being allocated to a task (can happen when dont specify resources).
@@ -57,12 +55,11 @@ python manager.py --jobinfofilepath=jobinfo.txt
 * absolutepathtobin is needed only if the executable is not in PATH on the worked (there is a bashrc that is sourced by default) 
 * For QM jobs, scratchpath is needed
 * Make sure input and output filenames are unique (only if submitting many jobs to queue), since manager wil move jobs from worker back to manager directory (dont want to overwrite filenames that are same) and then manager will move to path in outputfilepath
-* username is needed to tell the manager which queue to add job to (for which user specific queue to put jobs in ). By default, jobs are sent to usernames mainqueue.
 * Poltype and AMOEBAAnnihilator handle this part for you, just need to add a keyword "externalapi", which is absolute path to manager.py 
 ```
---job=command --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfilepaths=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk --username=username
+--job=command --ram=ram --numproc=numproc --inputfilepaths=file1path,file2path --outputfilepaths=file1path,file2path --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk 
 
---job=command --inputfilepaths=file1path,file2path --outputfilepaths=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk --username=username
+--job=command --inputfilepaths=file1path,file2path --outputfilepaths=file1,file2 --absolutepathtobin=path_to_bin --scratchpath=path_to_scratchdirs --disk=disk 
 ```
 
 * CPU tasks are tagged with CPU and GPU tasks are tagged with GPU
@@ -79,9 +76,9 @@ python manager.py --canceltasktag=GPU --username=username
 ```
 python manager.py --canceltaskid=taskid --username=username
 ```
-* Example manager initial input (on NOVA)
+* Example manager initial input (on bme-sun)
 ```
-nohup python /home/bdw2292/ClusterDaemon/manager.py --projectname=RenLabCluster --startingportnumber=9123 --workerdir=/scratch --bashrcpath=/home/bdw2292/.allpurpose.bashrc --startworkers &
+nohup python /home/bdw2292/ClusterDaemon/manager.py &
 ```
 * Example calling manager with input jobs
 ```
@@ -89,14 +86,14 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 ```
 * Example file contents for jobinfofilepath with Psi4/Gaussian
 ```
---job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 --disk=100GB --username=bdw2292 
---job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.fchk,/home/bdw2292/PoltypeJobs/SymmetryWater/grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 --disk=100GB --username=bdw2292 
---job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchpath=/scratch/bdw2292/Gau-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09 --disk=100GB --username=bdw2292 
+--job=psi4 water_3D-dma.psi4 water_3D-dma.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.psi4 --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-dma.fchk --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 --disk=100GB 
+--job=psi4 water_3D-esp.psi4 water_3D-esp.log --scratchpath=/scratch/bdw2292/Psi4-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.psi4,/home/bdw2292/PoltypeJobs/SymmetryWater/grid.dat --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.log,/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-esp.fchk,/home/bdw2292/PoltypeJobs/SymmetryWater/grid_esp.dat --absolutepathtobin=/home/bdw2292/miniconda3/envs/amoebamdpoltype/bin/psi4 --disk=100GB  
+--job=GAUSS_SCRDIR=/scratch/bdw2292/Gau-water_3D /opt/g09gh/gaussian/g09/g09 water_3D-opt_1.com --scratchpath=/scratch/bdw2292/Gau-water_3D --numproc=1 --ram=700MB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.com --outputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/water_3D-opt_1.log --absolutepathtobin=/opt/g09gh/gaussian/g09/g09 --disk=100GB  
 
 ```
 
 * Example poltype files inputs
-* Need the cd at the front. Can only do this for nodes physically connected to NOVA, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
+* Need the cd at the front. Can only do this for nodes physically connected to bme-sun, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
 ```
 --job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=1 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
 ```

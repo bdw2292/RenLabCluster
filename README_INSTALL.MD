@@ -29,24 +29,24 @@ conda env create -f amoebamdpoltype.yml
 * Manual install
 ```
 conda deactivate
-conda create -n amoebamdpoltype python=3.7 psi4=1.4.1+cd00f19 -c psi4 --yes
+conda create -n amoebamdpoltype python=3.7 --yes
 conda activate amoebamdpoltype
-conda install scipy=1.7.1 --yes
-conda install matplotlib=3.4.3 --yes
+conda install -c psi4 psi4 --yes
+conda install scipy --yes
+conda install matplotlib --yes
 conda install -c conda-forge openbabel=2.4.1 --yes
 conda install -c conda-forge forcebalance --yes
-conda install git pip=21.3.1 --yes
-conda install -c conda-forge rdkit=2021.09.2 --yes
-conda install -c conda-forge mdanalysis=2.0.0 --yes
-conda install -c conda-forge svgutils=0.3.4 --yes
-conda install -c conda-forge cairosvg=2.5.2 --yes
-conda install -c conda-forge pymbar=3.0.5 --yes
-conda install -c conda-forge mdtraj=1.9.6 --yes
-conda install -c anaconda packaging=20.4 --yes
-conda install -c conda-forge ndcctools=7.3.5 --yes
-conda install -c anaconda dill=0.3.2 --yes
-conda install -c conda-forge gspread=4.0.1 --yes
-conda install -c conda-forge tqdm=4.62.3 --yes
+conda install git pip --yes
+conda install -c conda-forge rdkit --yes
+conda install -c conda-forge mdanalysis --yes
+conda install -c conda-forge svgutils --yes
+conda install -c conda-forge cairosvg --yes
+conda install -c conda-forge pymbar --yes
+conda install -c conda-forge mdtraj --yes
+conda install -c anaconda packaging --yes
+conda install -c conda-forge ndcctools --yes
+conda install -c anaconda dill --yes
+conda install -c conda-forge gspread --yes
 conda install -c anaconda psutil --yes
 ```
 
@@ -60,28 +60,17 @@ VAL=`nvidia-smi &> /dev/null; echo $?`
 
 if [ $VAL != 0 ]; then
   echo -e "\e[101mCUDA utility not installed on `hostname`\e[0m"
+  declare -i VALUE=0
 else
-  CARD=`nvidia-smi -q | grep 'Product Name' | tr -dc '0-9'`
-  if [ $CARD > 1000 ]; then
-     firstchar=${CARD:0:1}
-     if [ $firstchar == 1 ] || [ $firstchar == 2 ]; then
-       declare -i VALUE=102
 
-     elif [ $firstchar == 3 ]; then
-       declare -i VALUE=112
+  for dir in /usr/local/*;
+  do
+      SUB='cuda'
+      if [[ "$dir" == *"$SUB"* ]]; then
+        VALUE=`echo $dir | tr -dc '0-9'`
+      fi
+  done
 
-     else
-       declare -i VALUE=0
-       echo -e "\e[101mTinker9 not supported for CUDA $CARD\e[0m"
-     fi
-  elif [ $CARD == 100 ]; then
-     declare -i VALUE=102
-
-  else
-     declare -i VALUE=0
-
-     echo -e "\e[101mTinker9 not supported for CUDA $CARD\e[0m"
-  fi
   if [ $VALUE == 102 ] ; then
        export TINKERGPUDIR=/home/liuchw/Softwares/tinkers/Tinker9-latest/build_cuda10.2/
        function dynamic_gpu () {
@@ -104,7 +93,7 @@ else
            $TINKER9/analyze9.sh $@
        }
        export -f analyze_gpu
-       export GPUDYNAMICS=True # need for forcebalance to know to use dynamic_gpu (modified forcebalance)
+       export GPUDYNAMICS=True # need this for ForceBalance to let program know to use dynamic_gpu
   elif [ $VALUE == 112 ] ; then
        export TINKERGPUDIR=/home/liuchw/Softwares/tinkers/Tinker9-latest/build_cuda11.2
        function dynamic_gpu () {
@@ -135,14 +124,16 @@ else
 
 
 fi
-
 if [ $OSVERSION == 8 ] ; then
     export PATH=/home/bdw2292/NewestTinkerOS8/bin/:$PATH
     export TINKERPATH=/home/bdw2292/NewestTinkerOS8/bin/ # this is for ForceBalance to recognize tinker path in different nodes
+     
 else
     export PATH=/home/bdw2292/NewestTinker/bin/:$PATH
     export TINKERPATH=/home/bdw2292/NewestTinker/bin/
+
 fi
+
 
 export myusername=`whoami`
 conda activate amoebamdpoltype
@@ -152,7 +143,6 @@ export GAUSS_SCRDIR=/scratch/$myusername/
 export GDMADIR=/opt/gdma/gdma-2.3.3/bin/
 export PATH=/opt/gdma/gdma-2.3.3/bin/:$PATH
 export PSI_SCRATCH=/scratch/$myusername/
-
 
 ```
 
