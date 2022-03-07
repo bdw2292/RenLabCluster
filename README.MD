@@ -143,6 +143,23 @@ node HASGPU CARDTYPE Processors RAM Scratch CPUConsumptionRatio RAMConsumptionRa
 * A while loop continuously checks new input jobs and constantly submit to queue.
 * Multiple instances of the dameon are not allowed to run simultaneously. If the program is called while an instance is already running, the input jobs are just added to the existing job queue and then the second instance will exit. If the file daemon.pid exists, then the daemon will not start again.
 
+## Creating Google Service Account
+* https://www.youtube.com/watch?v=4ssigWmExak
+1. Go to console.developers.google.com
+2. Sign in
+3. Start a new project
+4. Activate google sheet APIs
+5. Go to service accounts and create service account
+6. Create/Enter email address for reading the spreadsheet
+7. Give editor permissions to project
+8. Go to spreadsheet and click on share
+9. Enter email address that was created
+10. Click on the service account created
+11. Scroll down and add key, click create new key
+12. Select json
+13. Rename file to credentials.json and put in the NodeTopolgy directory
+
+
 
 
 ## Test Daemon
