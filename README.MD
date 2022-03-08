@@ -1,7 +1,7 @@
 ## Help
 
 ## Usage
-* Go to bme-sun
+* Go to bme-nova
 * Activate conda envioronment for CCTools before calling manager
 * Go to directory with manager.py
 * Each user will get their own queue of workers
@@ -76,7 +76,7 @@ python manager.py --canceltasktag=GPU --username=username
 ```
 python manager.py --canceltaskid=taskid --username=username
 ```
-* Example manager initial input (on bme-sun)
+* Example manager initial input (on bme-nova)
 ```
 nohup python /home/bdw2292/ClusterDaemon/manager.py &
 ```
@@ -93,7 +93,7 @@ python /home/bdw2292/ClusterDaemon/manager.py --jobinfofilepath=/home/bdw2292/Cl
 ```
 
 * Example poltype files inputs
-* Need the cd at the front. Can only do this for nodes physically connected to bme-sun, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
+* Need the cd at the front. Can only do this for nodes physically connected to bme-nova, since file system is shared amongst all nodes, this means that not all input and outputfiles need to be specified in order to run a job on a remote worker (as long as filesystem is shared)
 ```
 --job=cd /home/bdw2292/PoltypeJobs/SymmetryWater ; python /home/bdw2292/poltype2/PoltypeModules/poltype.py --ram=10GB --numproc=1 --disk=0GB --inputfilepaths=/home/bdw2292/PoltypeJobs/SymmetryWater/poltype.ini
 ```
@@ -180,4 +180,4 @@ nohup python pingnodes.py --monitorresourceusage &
 
 ## Todo
 * Seperate the CPU disk and GPU disk resources, otherwise everytime CPU resource changes, since they share the same disk, then daemon detects change in GPU disk resource and kill CPU and GPU worker
-* Parse /opt/quota.sun and /opt/quota.nova.home, then report if quota is getting close to filling (send emails and log information)
+* Parse /opt/quota.nova and /opt/quota.nova.home, then report if quota is getting close to filling (send emails and log information)
