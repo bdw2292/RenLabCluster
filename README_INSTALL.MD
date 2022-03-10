@@ -1,6 +1,9 @@
 ## Setup for Cluster Submission
 * Make sure you can ssh into all nodes, so rsa keys exist for each node
-* Install miniconda or anaconda
+* Install anaconda on Nova
+```
+https://blog.vpscheap.net/how-to-setup-python-anaconda-in-centos/
+```
 * Clone repo 
 ```
 git clone https://github.com/bdw2292/RenLabCluster.git
