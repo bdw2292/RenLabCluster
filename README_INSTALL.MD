@@ -4,24 +4,11 @@
 ```
 https://blog.vpscheap.net/how-to-setup-python-anaconda-in-centos/
 ```
+* Update conda "conda update conda"
 * Clone repo 
 ```
 git clone https://github.com/bdw2292/RenLabCluster.git
 ```
-* Create conda from yml file or manually line by line
-```
-conda env create -f clusterenv.yml
-```
-* Manual install
-```
-conda create --name clusterenv --yes
-conda activate clusterenv
-conda install -c conda-forge ndcctools=7.3.5 --yes
-conda install -c anaconda dill=0.3.2 --yes
-conda install -c conda-forge gspread=4.0.1 --yes
-conda install -c conda-forge tqdm=4.62.3 --yes
-```
-
 
 ## Setup for bashrc
 * Install from yml file
@@ -31,26 +18,31 @@ conda env create -f amoebamdpoltype.yml
 
 * Manual install
 ```
-conda deactivate
-conda create -n amoebamdpoltype python=3.7 --yes
+conda create -n amoebamdpoltype python=3.8 --yes
 conda activate amoebamdpoltype
-conda install -c psi4 psi4 --yes
 conda install scipy --yes
 conda install matplotlib --yes
-conda install -c conda-forge openbabel=2.4.1 --yes
-conda install -c conda-forge forcebalance --yes
-conda install git pip --yes
+conda install -c conda-forge openbabel --yes
 conda install -c conda-forge rdkit --yes
 conda install -c conda-forge mdanalysis --yes
 conda install -c conda-forge svgutils --yes
 conda install -c conda-forge cairosvg --yes
-conda install -c conda-forge pymbar --yes
+conda install -c anaconda psutil --yes
+conda install -c anaconda numpy --yes
+conda install git pip --yes
+pip install PyAstronomy
+conda install -c conda-forge -c schrodinger pymol-bundle --yes
+conda install -c anaconda scikit-learn --yes
 conda install -c conda-forge mdtraj --yes
+conda upgrade numpy --yes
+conda install -c conda-forge forcebalance --yes
+conda install -c conda-forge pymbar --yes
 conda install -c anaconda packaging --yes
 conda install -c conda-forge ndcctools --yes
 conda install -c anaconda dill --yes
 conda install -c conda-forge gspread --yes
-conda install -c anaconda psutil --yes
+conda install -c conda-forge tqdm --yes
+conda install -c psi4 psi4 --yes
 ```
 
 * Bashrc example
