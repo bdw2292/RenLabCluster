@@ -1,4 +1,4 @@
-## Help
+### CPU/GPU queuing manager for scalable computations on private cluster
 
 ## Usage
 * Go to bme-nova
